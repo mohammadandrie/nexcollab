@@ -10,19 +10,26 @@ Live: https://nexcollab.maxndre.com
 - Tim default: Tyo (PM), Hamfik (UX), Hari & Chalif (Dev), Andre (QA).
 
 ## Stack
-- Backend: FastAPI + SQLite (`backend/`)
-- Frontend: vanilla JS + Tailwind CDN (`static/`)
+- Backend: Express + better-sqlite3 (`server/`)
+- Frontend: React + Vite + Tailwind (`client/`)
 - LLM: OpenAI-compatible Hermes gateway (`http://127.0.0.1:1430/v1`)
 
 ## Run locally
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install fastapi 'uvicorn[standard]' httpx itsdangerous python-multipart
-.venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8091
+# 1. Backend (Express)
+cd server && npm install && cd ..
+node server/index.js          # port 8091
+
+# 2. Frontend (Vite dev server, separate terminal)
+cd client && npm install && npm run dev    # port 5173, proxies /api → 8091
+
+# 3. Production build
+cd client && npm run build    # writes to client/dist/
+node server/index.js          # serves API + built React
 ```
 
-Lalu buka http://localhost:8091
+Lalu buka http://localhost:8091 (production) atau http://localhost:5173 (dev).
 
 ## Env vars (opsional)
 - `NEXCOLLAB_LLM_BASE` — base URL gateway (default `http://127.0.0.1:1430/v1`)
@@ -32,11 +39,12 @@ Lalu buka http://localhost:8091
 - `NEXCOLLAB_DB` — path SQLite (default `data/nexcollab.sqlite3`)
 
 ## File map
-- `backend/main.py` — FastAPI app
-- `backend/db.py` — SQLite schema + helpers
-- `backend/seed.py` — bootstrap users, project, chats
-- `backend/llm.py` — OpenAI-compat client
-- `backend/auth.py` — cookie session
-- `backend/routes_*.py` — auth, projects, chat
-- `static/login.html`, `static/app.html`, `static/app.js` — UI
-- `static/mockup.html`, `static/docs.html` — mockup statis & dokumentasi
+- `server/index.js` — Express app entry
+- `server/db.js` — better-sqlite3 + schema
+- `server/seed.js` — bootstrap users, project, chats
+- `server/llm.js` — OpenAI-compat client (Hermes gateway)
+- `server/auth.js` — signed cookie session
+- `server/routes/{auth,projects,chat}.js` — REST endpoints
+- `client/src/App.jsx` — root, login/workspace switch
+- `client/src/components/` — Workspace, Sidebar, ChatView, modals, etc.
+- `client/src/api.js` — fetch wrapper + tiny markdown

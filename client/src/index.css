@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #0a0a0a;
+  color: #e5e5e5;
+}
+
+/* Role color tokens — used by avatars/pills. */
+.role-PM  { color: #a78bfa; background: rgba(167,139,250,.12); border-color: rgba(167,139,250,.25); }
+.role-UX  { color: #f472b6; background: rgba(244,114,182,.12); border-color: rgba(244,114,182,.25); }
+.role-DEV { color: #34d399; background: rgba(52,211,153,.12);  border-color: rgba(52,211,153,.25); }
+.role-QA  { color: #fbbf24; background: rgba(251,191,36,.12);  border-color: rgba(251,191,36,.25); }
+
+.hermes-bubble {
+  background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(168,85,247,.05));
+  border-left: 2px solid #818cf8;
+}
+.user-bubble { background: #161616; }
+.promote-btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+.promote-btn:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+
+.scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+.scrollbar::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+.live-dot { animation: pulse-dot 2s infinite; }
