@@ -10,6 +10,7 @@ import { seed } from './seed.js';
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
 import chatRouter from './routes/chat.js';
+import githubRouter from './routes/github.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -20,6 +21,7 @@ app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRouter);
 app.use('/api', projectsRouter);
 app.use('/api', chatRouter);
+app.use('/api', githubRouter);
 
 // React client (built by Vite into client/dist).
 if (fs.existsSync(CLIENT_DIST)) {

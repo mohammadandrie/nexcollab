@@ -36,7 +36,7 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
       });
       onSaved(updated);
     } catch (e) {
-      setErr('Gagal: ' + (e.message || e));
+      setErr('Failed: ' + (e.message || e));
     } finally { setBusy(false); }
   }
 
@@ -46,9 +46,9 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-xl p-4">
-        <div className="text-sm font-semibold mb-1">Profil kamu</div>
-        <div className="text-[11px] text-neutral-500 mb-3">
-          Edit nama tampilan, huruf avatar, dan warna. Username tidak bisa diubah.
+        <div className="text-sm font-semibold mb-1">Your profile</div>
+        <div className="text-[11px] theme-muted mb-3">
+          Edit display name, avatar letter, and color. Username is read-only.
         </div>
 
         <div className="flex items-center gap-3 mb-3">
@@ -61,18 +61,18 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
           </div>
         </div>
 
-        <label className="text-[11px] text-neutral-500">Nama tampilan</label>
+        <label className="text-[11px] theme-muted">Display name</label>
         <input value={name} onChange={(e) => setName(e.target.value)}
           className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm mb-3
                      focus:outline-none focus:border-indigo-500/50" />
 
-        <label className="text-[11px] text-neutral-500">Huruf avatar (1–2 karakter / emoji)</label>
+        <label className="text-[11px] theme-muted">Avatar letter (1–2 chars / emoji)</label>
         <input value={letter} onChange={(e) => setLetter(e.target.value)}
           maxLength={2}
           className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm mb-3
                      focus:outline-none focus:border-indigo-500/50" />
 
-        <label className="text-[11px] text-neutral-500 block mb-1">Warna</label>
+        <label className="text-[11px] theme-muted block mb-1">Color</label>
         <div className="flex gap-2 flex-wrap mb-3">
           {PRESET_COLORS.map((c) => (
             <button key={c} type="button" onClick={() => setColor(c)}
@@ -86,10 +86,10 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
 
         {err && <div className="text-[11px] text-red-400 mb-2">{err}</div>}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="text-xs text-neutral-400 px-3 py-1.5">Batal</button>
+          <button onClick={onClose} className="text-xs theme-muted px-3 py-1.5">Cancel</button>
           <button onClick={save} disabled={busy}
             className="promote-btn text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50">
-            {busy ? 'Menyimpan…' : 'Simpan'}
+            {busy ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

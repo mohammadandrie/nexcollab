@@ -20,8 +20,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-neutral-500 text-sm">
-        memuat…
+      <div className="min-h-screen flex items-center justify-center theme-muted text-sm">
+        Loading…
       </div>
     );
   }

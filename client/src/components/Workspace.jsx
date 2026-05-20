@@ -20,21 +20,21 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
   const [settingsProject, setSettingsProject] = useState(null);
 
   const projectName = s.mode === 'general'
-    ? 'Chat bebas (di luar project)'
+    ? 'General chat (out of project)'
     : (s.project?.name ?? '…');
 
   const titleSubtitle = (() => {
     if (s.mode === 'general') {
-      return ['Chat General', 'Bebas — di luar project',
-        'Brainstorm apa saja. Tidak terhubung ke project manapun.'];
+      return ['General Chat', 'Free-form, out of project',
+        'Brainstorm anything. Not tied to any project.'];
     }
     const proj = s.project?.name || '';
     if (s.activeTab === 'private') {
-      return ['Chat Pribadi', `Brainstorming privat dengan Hermes · ${proj}`,
-        'Hermes akan jawab. Klik "Send to Chat All" buat share ke tim.'];
+      return ['Private Chat', `Private brainstorm with Hermes · ${proj}`,
+        'Hermes will reply. Click "Send to Chat All" to share with the team.'];
     }
-    return ['Chat All — decision log', `Shared dengan semua anggota · ${proj}`,
-      'Pesan di sini langsung tampil ke semua anggota project.'];
+    return ['Chat All — decision log', `Shared with all members · ${proj}`,
+      'Messages here are visible to all project members.'];
   })();
   const [title, subtitle, hint] = titleSubtitle;
 
@@ -51,7 +51,7 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
       }];
       if (expectsLLM) {
         next.push({ id: 'thinking', role: 'assistant',
-                    content: '_Hermes mengetik…_', author_id: null });
+                    content: '_Hermes is typing…_', author_id: null });
       }
       return next;
     });
@@ -134,24 +134,23 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
                       ? 'bg-neutral-800 text-white'
                       : 'text-neutral-400'
                   }`}>
-                  {t === 'private' ? '🔒 Pribadi' : '💬 Chat All'}
+                  {t === 'private' ? '🔒 Private' : '💬 Chat All'}
                 </button>
               ))}
             </div>
           )}
 
           {s.mode === 'project' && (
-            <div className="hidden md:flex gap-1 mb-3 p-1 bg-neutral-900/60
-                            border border-neutral-800 rounded-lg max-w-xs">
+            <div className="hidden md:flex gap-1 mb-3 p-1 theme-panel rounded-lg max-w-xs">
               {['private', 'all'].map((t) => (
                 <button key={t}
                   onClick={() => s.setActiveTab(t)}
                   className={`flex-1 text-xs py-1.5 rounded ${
                     s.activeTab === t
-                      ? 'bg-neutral-800 text-white'
-                      : 'text-neutral-400'
+                      ? 'bg-[color:var(--bg-3)] text-[color:var(--fg)]'
+                      : 'theme-muted'
                   }`}>
-                  {t === 'private' ? '🔒 Pribadi' : '💬 Chat All'}
+                  {t === 'private' ? '🔒 Private' : '💬 Chat All'}
                 </button>
               ))}
             </div>

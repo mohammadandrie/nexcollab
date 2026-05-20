@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import ThemeToggle from './ThemeToggle.jsx';
 
 export default function TopBar({ user, projectName, onLogout, onProfileClick }) {
   async function logout() {
@@ -7,7 +8,8 @@ export default function TopBar({ user, projectName, onLogout, onProfileClick }) 
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-black/70 backdrop-blur border-b border-neutral-800">
+    <header className="sticky top-0 z-30 backdrop-blur theme-panel"
+            style={{ background: 'color-mix(in srgb, var(--bg) 70%, transparent)' }}>
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600
@@ -19,12 +21,15 @@ export default function TopBar({ user, projectName, onLogout, onProfileClick }) 
         </div>
         <div className="flex items-center gap-2">
           <a href="/docs.html" target="_blank" rel="noreferrer"
-             className="text-[11px] text-neutral-400 hover:text-neutral-200
-                        bg-neutral-900 border border-neutral-800 rounded-full px-2.5 py-1">
-            📖 docs
+             className="text-[11px] theme-muted hover:opacity-80
+                        bg-transparent border border-[color:var(--border)]
+                        rounded-full px-2.5 py-1">
+            Docs
           </a>
-          <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 bg-neutral-900
-                          border border-neutral-800 rounded-full px-2.5 py-1">
+          <ThemeToggle />
+          <div className="hidden sm:flex items-center gap-1.5 text-[11px] theme-muted
+                          bg-transparent border border-[color:var(--border)]
+                          rounded-full px-2.5 py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></span>
             Hermes online
           </div>
@@ -36,14 +41,14 @@ export default function TopBar({ user, projectName, onLogout, onProfileClick }) 
           </div>
           <button
             onClick={onProfileClick}
-            title="Edit profil"
+            title="Edit profile"
             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
                        hover:ring-2 hover:ring-white/30 transition"
             style={{ background: user.color + '22', color: user.color, border: `1px solid ${user.color}55` }}>
             {user.avatar_letter}
           </button>
-          <button onClick={logout} className="text-[11px] text-neutral-500 hover:text-neutral-300">
-            logout
+          <button onClick={logout} className="text-[11px] theme-muted hover:opacity-80">
+            Logout
           </button>
         </div>
       </div>

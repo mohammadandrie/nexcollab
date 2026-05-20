@@ -10,9 +10,9 @@ export default function ChatView({ messages, mode, activeTab, onShare }) {
   }, [messages]);
 
   let placeholder;
-  if (mode === 'general') placeholder = 'Chat bebas. Mulai mengetik apa saja…';
-  else if (activeTab === 'private') placeholder = 'Mulai percakapan dengan Hermes…';
-  else placeholder = 'Belum ada keputusan yang di-share di project ini.';
+  if (mode === 'general') placeholder = 'General chat. Start typing anything…';
+  else if (activeTab === 'private') placeholder = 'Start a conversation with Hermes…';
+  else placeholder = 'No decisions shared in this project yet.';
 
   const canShare = mode === 'project' && activeTab === 'private';
 

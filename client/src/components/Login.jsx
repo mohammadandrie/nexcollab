@@ -37,7 +37,7 @@ export default function Login({ onLogin }) {
         </div>
 
         <div className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-5">
-          <div className="text-sm text-neutral-300 mb-3">Pilih siapa kamu:</div>
+          <div className="text-sm theme-muted mb-3">Select your account:</div>
           <div className="grid grid-cols-1 gap-2">
             {users.map((u) => (
               <button
