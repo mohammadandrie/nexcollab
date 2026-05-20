@@ -1,131 +1,133 @@
-// Project + chat listing/creation routes.
+// Project + chat listing/creation routes (MongoDB).
 import { Router } from 'express';
-import { db, all, get, run } from '../db.js';
+import { cP, cPM, cC, cU, cM, nextId } from '../db.js';
 import { requireAuth } from '../auth.js';
 
 const router = Router();
 
-router.get('/projects', requireAuth, (req, res) => {
-  const rows = all(
-    `SELECT p.id, p.name, p.description, p.github_repo, p.github_branch
-     FROM projects p
-     JOIN project_members pm ON pm.project_id = p.id
-     WHERE pm.user_id = ?
-     ORDER BY p.id`,
-    req.user.id,
-  );
-  res.json({ projects: rows });
+// Normalize: add id alias for frontend compatibility.
+const withId = (doc) => doc ? ({ ...doc, id: doc._id }) : doc;
+
+router.get('/projects', requireAuth, async (req, res, next) => {
+  try {
+    const memberships = await cPM().find({ user_id: req.user._id })
+      .project({ project_id: 1 }).toArray();
+    const ids = memberships.map((m) => m.project_id);
+    const rows = await cP().find({ _id: { $in: ids } })
+      .sort({ _id: 1 }).toArray();
+    res.json({ projects: rows.map(withId) });
+  } catch (e) { next(e); }
 });
 
-router.get('/projects/:id', requireAuth, (req, res) => {
-  const projectId = parseInt(req.params.id, 10);
-  const proj = get('SELECT * FROM projects WHERE id = ?', projectId);
-  if (!proj) return res.status(404).json({ detail: 'project_not_found' });
+router.get('/projects/:id', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    const proj = await cP().findOne({ _id: projectId });
+    if (!proj) return res.status(404).json({ detail: 'project_not_found' });
 
-  const member = get(
-    'SELECT 1 FROM project_members WHERE project_id=? AND user_id=?',
-    projectId, req.user.id,
-  );
-  if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
 
-  const members = all(
-    `SELECT u.id, u.username, u.name, u.role, u.color, u.avatar_letter
-     FROM users u JOIN project_members pm ON pm.user_id = u.id
-     WHERE pm.project_id = ? ORDER BY u.id`,
-    projectId,
-  );
-  const priv = get(
-    `SELECT id FROM chats WHERE project_id=? AND kind='private' AND owner_id=?`,
-    projectId, req.user.id,
-  );
-  const chatAll = get(
-    `SELECT id FROM chats WHERE project_id=? AND kind='all'`,
-    projectId,
-  );
+    const memberRows = await cPM().find({ project_id: projectId })
+      .project({ user_id: 1 }).toArray();
+    const userIds = memberRows.map((m) => m.user_id);
+    const members = await cU().find({ _id: { $in: userIds } })
+      .project({ _id: 1, username: 1, name: 1, role: 1, color: 1, avatar_letter: 1, photo_url: 1 })
+      .sort({ _id: 1 }).toArray();
 
-  res.json({
-    project: proj,
-    members,
-    my_private_chat_id: priv?.id ?? null,
-    chat_all_id: chatAll?.id ?? null,
-  });
+    const priv = await cC().findOne({
+      project_id: projectId, kind: 'private', owner_id: req.user._id,
+    });
+    const chatAll = await cC().findOne({ project_id: projectId, kind: 'all' });
+
+    res.json({
+      project: withId(proj),
+      members: members.map(withId),
+      my_private_chat_id: priv?._id ?? null,
+      chat_all_id: chatAll?._id ?? null,
+    });
+  } catch (e) { next(e); }
 });
 
-router.post('/projects', requireAuth, (req, res) => {
-  const name = String(req.body?.name || '').trim();
-  const description = String(req.body?.description || '').trim();
-  const memberIds = Array.isArray(req.body?.member_ids) ? req.body.member_ids : null;
-  if (!name) return res.status(400).json({ detail: 'name_required' });
+router.post('/projects', requireAuth, async (req, res, next) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const description = String(req.body?.description || '').trim();
+    const memberIds = Array.isArray(req.body?.member_ids) ? req.body.member_ids : null;
+    if (!name) return res.status(400).json({ detail: 'name_required' });
 
-  const tx = db.transaction(() => {
-    const r = run(
-      'INSERT INTO projects(name,description) VALUES (?,?)',
-      name, description,
-    );
-    const projectId = r.lastInsertRowid;
+    const projectId = await nextId('projects');
+    await cP().insertOne({
+      _id: projectId, name, description,
+      github_repo: '', github_branch: '',
+      created_at: new Date(),
+    });
 
-    const ids = new Set(memberIds ?? all('SELECT id FROM users').map((u) => u.id));
-    ids.add(req.user.id);
+    let ids;
+    if (memberIds) {
+      ids = new Set(memberIds);
+    } else {
+      const all = await cU().find({}, { projection: { _id: 1 } }).toArray();
+      ids = new Set(all.map((u) => u._id));
+    }
+    ids.add(req.user._id);
 
     for (const uid of ids) {
-      run(
-        'INSERT OR IGNORE INTO project_members(project_id,user_id) VALUES (?,?)',
-        projectId, uid,
+      await cPM().updateOne(
+        { project_id: projectId, user_id: uid },
+        { $setOnInsert: { project_id: projectId, user_id: uid } },
+        { upsert: true },
       );
     }
-    run(
-      `INSERT INTO chats(project_id,kind,owner_id) VALUES (?,?,NULL)`,
-      projectId, 'all',
-    );
+    await cC().insertOne({
+      _id: await nextId('chats'),
+      project_id: projectId, kind: 'all', owner_id: null,
+    });
     for (const uid of ids) {
-      run(
-        `INSERT INTO chats(project_id,kind,owner_id) VALUES (?,?,?)`,
-        projectId, 'private', uid,
-      );
+      await cC().insertOne({
+        _id: await nextId('chats'),
+        project_id: projectId, kind: 'private', owner_id: uid,
+      });
     }
-    return projectId;
-  });
-
-  const projectId = tx();
-  res.json({ ok: true, project_id: projectId });
+    res.json({ ok: true, project_id: projectId });
+  } catch (e) { next(e); }
 });
 
-router.patch('/projects/:id', requireAuth, (req, res) => {
-  const projectId = parseInt(req.params.id, 10);
-  const member = get(
-    'SELECT 1 FROM project_members WHERE project_id=? AND user_id=?',
-    projectId, req.user.id,
-  );
-  if (!member) return res.status(403).json({ detail: 'not_a_member' });
+router.patch('/projects/:id', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
 
-  const fields = [];
-  const args = [];
-  for (const [k, col] of [
-    ['name', 'name'], ['description', 'description'],
-    ['github_repo', 'github_repo'], ['github_branch', 'github_branch'],
-  ]) {
-    if (k in (req.body || {})) {
-      const v = String(req.body[k] ?? '').trim();
-      if (k === 'name' && !v) return res.status(400).json({ detail: 'name_required' });
-      fields.push(`${col} = ?`); args.push(v);
+    const update = {};
+    for (const k of ['name', 'description', 'github_repo', 'github_branch']) {
+      if (k in (req.body || {})) {
+        const v = String(req.body[k] ?? '').trim();
+        if (k === 'name' && !v) return res.status(400).json({ detail: 'name_required' });
+        update[k] = v;
+      }
     }
-  }
-  if (!fields.length) return res.status(400).json({ detail: 'no_fields' });
-  args.push(projectId);
-  run(`UPDATE projects SET ${fields.join(', ')} WHERE id = ?`, ...args);
-  res.json({ ok: true, project: get('SELECT * FROM projects WHERE id = ?', projectId) });
+    if (!Object.keys(update).length) return res.status(400).json({ detail: 'no_fields' });
+    await cP().updateOne({ _id: projectId }, { $set: update });
+    const updated = await cP().findOne({ _id: projectId });
+    res.json({ ok: true, project: withId(updated) });
+  } catch (e) { next(e); }
 });
 
-router.delete('/projects/:id', requireAuth, (req, res) => {
-  const projectId = parseInt(req.params.id, 10);
-  const member = get(
-    'SELECT 1 FROM project_members WHERE project_id=? AND user_id=?',
-    projectId, req.user.id,
-  );
-  if (!member) return res.status(403).json({ detail: 'not_a_member' });
-  // Cascade handles chats, messages, project_members.
-  run('DELETE FROM projects WHERE id = ?', projectId);
-  res.json({ ok: true });
+router.delete('/projects/:id', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+
+    const chatIds = (await cC().find({ project_id: projectId })
+      .project({ _id: 1 }).toArray()).map((c) => c._id);
+    await cM().deleteMany({ chat_id: { $in: chatIds } });
+    await cC().deleteMany({ project_id: projectId });
+    await cPM().deleteMany({ project_id: projectId });
+    await cP().deleteOne({ _id: projectId });
+    res.json({ ok: true });
+  } catch (e) { next(e); }
 });
 
 export default router;

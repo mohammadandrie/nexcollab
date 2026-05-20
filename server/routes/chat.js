@@ -1,146 +1,130 @@
-// Chat routes: read messages, send, share to Chat All.
+// Chat routes (MongoDB): read messages, send, share to Chat All.
 import { Router } from 'express';
-import { db, all, get, run } from '../db.js';
+import { cC, cM, cP, cU, nextId } from '../db.js';
 import { requireAuth } from '../auth.js';
+import { loadChatOr403 } from '../chat-auth.js';
 import { buildSystemPrompt, buildGeneralPrompt, chatComplete } from '../llm.js';
 
 const router = Router();
 
-function loadChatOr403(chatId, user, res) {
-  const chat = get('SELECT * FROM chats WHERE id = ?', chatId);
-  if (!chat) { res.status(404).json({ detail: 'chat_not_found' }); return null; }
-
-  if (chat.kind === 'general') {
-    if (chat.owner_id !== user.id) {
-      res.status(403).json({ detail: 'not_your_general_chat' }); return null;
+router.get('/chats/general', requireAuth, async (req, res, next) => {
+  try {
+    let row = await cC().findOne({ kind: 'general', owner_id: req.user._id });
+    if (!row) {
+      const _id = await nextId('chats');
+      await cC().insertOne({ _id, project_id: null, kind: 'general', owner_id: req.user._id });
+      row = { _id };
     }
-    return chat;
-  }
-  const member = get(
-    'SELECT 1 FROM project_members WHERE project_id=? AND user_id=?',
-    chat.project_id, user.id,
-  );
-  if (!member) { res.status(403).json({ detail: 'not_a_member' }); return null; }
-  if (chat.kind === 'private' && chat.owner_id !== user.id) {
-    res.status(403).json({ detail: 'not_your_private_chat' }); return null;
-  }
-  return chat;
-}
-
-router.get('/chats/general', requireAuth, (req, res) => {
-  let row = get(
-    `SELECT id FROM chats WHERE kind='general' AND owner_id=?`,
-    req.user.id,
-  );
-  if (!row) {
-    const r = run(
-      `INSERT INTO chats(project_id,kind,owner_id) VALUES (NULL,'general',?)`,
-      req.user.id,
-    );
-    row = { id: r.lastInsertRowid };
-  }
-  res.json({ chat_id: row.id });
+    res.json({ chat_id: row._id });
+  } catch (e) { next(e); }
 });
 
-router.get('/chats/:id/messages', requireAuth, (req, res) => {
-  const chatId = parseInt(req.params.id, 10);
-  if (!loadChatOr403(chatId, req.user, res)) return;
-  const rows = all(
-    `SELECT m.id, m.role, m.content, m.author_id, m.shared_from_chat_id,
-            m.created_at,
-            u.name AS author_name, u.role AS author_role,
-            u.color AS author_color, u.avatar_letter AS author_letter
-     FROM messages m
-     LEFT JOIN users u ON u.id = m.author_id
-     WHERE m.chat_id = ?
-     ORDER BY m.id ASC`,
-    chatId,
-  );
-  res.json({ messages: rows });
+router.get('/chats/:id/messages', requireAuth, async (req, res, next) => {
+  try {
+    const chatId = parseInt(req.params.id, 10);
+    if (!await loadChatOr403(chatId, req.user, res)) return;
+
+    const msgs = await cM().find({ chat_id: chatId }).sort({ _id: 1 }).toArray();
+    const authorIds = [...new Set(msgs.map((m) => m.author_id).filter(Boolean))];
+    const authors = await cU().find(
+      { _id: { $in: authorIds } },
+      { projection: { _id: 1, name: 1, role: 1, color: 1, avatar_letter: 1 } },
+    ).toArray();
+    const byId = Object.fromEntries(authors.map((u) => [u._id, u]));
+
+    const messages = msgs.map((m) => {
+      const a = m.author_id ? byId[m.author_id] : null;
+      return {
+        id: m._id, role: m.role, content: m.content,
+        author_id: m.author_id, shared_from_chat_id: m.shared_from_chat_id ?? null,
+        created_at: m.created_at,
+        author_name: a?.name ?? null,
+        author_role: a?.role ?? null,
+        author_color: a?.color ?? null,
+        author_letter: a?.avatar_letter ?? null,
+      };
+    });
+    res.json({ messages });
+  } catch (e) { next(e); }
 });
 
-router.post('/chats/:id/messages', requireAuth, async (req, res) => {
-  const chatId = parseInt(req.params.id, 10);
-  const chat = loadChatOr403(chatId, req.user, res);
-  if (!chat) return;
+router.post('/chats/:id/messages', requireAuth, async (req, res, next) => {
+  try {
+    const chatId = parseInt(req.params.id, 10);
+    const chat = await loadChatOr403(chatId, req.user, res);
+    if (!chat) return;
 
-  const text = String(req.body?.content || '').trim();
-  if (!text) return res.status(400).json({ detail: 'empty_message' });
+    const text = String(req.body?.content || '').trim();
+    if (!text) return res.status(400).json({ detail: 'empty_message' });
 
-  const r = run(
-    'INSERT INTO messages(chat_id,author_id,role,content) VALUES (?,?,?,?)',
-    chatId, req.user.id, 'user', text,
-  );
-  const userMsgId = r.lastInsertRowid;
+    const userMsgId = await nextId('messages');
+    await cM().insertOne({
+      _id: userMsgId, chat_id: chatId, author_id: req.user._id,
+      role: 'user', content: text, created_at: new Date(),
+    });
 
-  let assistantMsg = null;
-  if (chat.kind === 'private' || chat.kind === 'general') {
-    let sysPrompt;
-    if (chat.kind === 'private') {
-      const proj = get('SELECT * FROM projects WHERE id = ?', chat.project_id);
-      sysPrompt = buildSystemPrompt(
-        req.user.name, req.user.role,
-        proj?.name || 'Nexcollab', proj?.description || '',
-      );
-    } else {
-      sysPrompt = buildGeneralPrompt(req.user.name, req.user.role);
+    let assistantMsg = null;
+    if (chat.kind === 'private' || chat.kind === 'general') {
+      let sysPrompt;
+      if (chat.kind === 'private') {
+        const proj = await cP().findOne({ _id: chat.project_id });
+        sysPrompt = buildSystemPrompt(
+          req.user.name, req.user.role,
+          proj?.name || 'Nexcollab', proj?.description || '',
+        );
+      } else {
+        sysPrompt = buildGeneralPrompt(req.user.name, req.user.role);
+      }
+
+      const history = await cM().find({ chat_id: chatId })
+        .sort({ _id: 1 }).limit(40)
+        .project({ role: 1, content: 1 }).toArray();
+      const msgs = [{ role: 'system', content: sysPrompt }, ...history];
+
+      let reply;
+      try { reply = await chatComplete(msgs); }
+      catch (e) { reply = `_[LLM error: ${e.name}: ${e.message}]_`; }
+
+      const arId = await nextId('messages');
+      await cM().insertOne({
+        _id: arId, chat_id: chatId, author_id: null,
+        role: 'assistant', content: reply, created_at: new Date(),
+      });
+      assistantMsg = { id: arId, role: 'assistant', content: reply, author_id: null };
     }
 
-    const history = all(
-      'SELECT role, content FROM messages WHERE chat_id=? ORDER BY id ASC LIMIT 40',
-      chatId,
-    );
-    const msgs = [{ role: 'system', content: sysPrompt }, ...history];
-
-    let reply;
-    try { reply = await chatComplete(msgs); }
-    catch (e) { reply = `_[LLM error: ${e.name}: ${e.message}]_`; }
-
-    const ar = run(
-      'INSERT INTO messages(chat_id,author_id,role,content) VALUES (?,NULL,?,?)',
-      chatId, 'assistant', reply,
-    );
-    assistantMsg = {
-      id: ar.lastInsertRowid, role: 'assistant',
-      content: reply, author_id: null,
-    };
-  }
-
-  res.json({ user_message_id: userMsgId, assistant_message: assistantMsg });
+    res.json({ user_message_id: userMsgId, assistant_message: assistantMsg });
+  } catch (e) { next(e); }
 });
 
-router.post('/messages/:id/share', requireAuth, (req, res) => {
-  const messageId = parseInt(req.params.id, 10);
-  const note = String(req.body?.note || '').trim();
+router.post('/messages/:id/share', requireAuth, async (req, res, next) => {
+  try {
+    const messageId = parseInt(req.params.id, 10);
+    const note = String(req.body?.note || '').trim();
 
-  const src = get(
-    `SELECT m.*, c.project_id, c.kind, c.owner_id AS chat_owner
-     FROM messages m JOIN chats c ON c.id = m.chat_id
-     WHERE m.id = ?`,
-    messageId,
-  );
-  if (!src) return res.status(404).json({ detail: 'message_not_found' });
-  if (src.kind !== 'private' || src.chat_owner !== req.user.id) {
-    return res.status(403).json({ detail: 'not_your_message' });
-  }
+    const src = await cM().findOne({ _id: messageId });
+    if (!src) return res.status(404).json({ detail: 'message_not_found' });
+    const srcChat = await cC().findOne({ _id: src.chat_id });
+    if (!srcChat || srcChat.kind !== 'private' || srcChat.owner_id !== req.user._id) {
+      return res.status(403).json({ detail: 'not_your_message' });
+    }
 
-  const chatAll = get(
-    `SELECT id FROM chats WHERE project_id=? AND kind='all'`,
-    src.project_id,
-  );
-  if (!chatAll) return res.status(500).json({ detail: 'chat_all_missing' });
+    const chatAll = await cC().findOne({ project_id: srcChat.project_id, kind: 'all' });
+    if (!chatAll) return res.status(500).json({ detail: 'chat_all_missing' });
 
-  let body = src.role === 'assistant'
-    ? `_From Hermes (shared by ${req.user.name}):_\n\n${src.content}`
-    : src.content;
-  if (note) body = `**${note}**\n\n${body}`;
+    let body = src.role === 'assistant'
+      ? `_From Hermes (shared by ${req.user.name}):_\n\n${src.content}`
+      : src.content;
+    if (note) body = `**${note}**\n\n${body}`;
 
-  const r = run(
-    `INSERT INTO messages(chat_id,author_id,role,content,shared_from_chat_id)
-     VALUES (?,?,?,?,?)`,
-    chatAll.id, req.user.id, 'user', body, src.chat_id,
-  );
-  res.json({ ok: true, chat_all_id: chatAll.id, new_message_id: r.lastInsertRowid });
+    const newId = await nextId('messages');
+    await cM().insertOne({
+      _id: newId, chat_id: chatAll._id, author_id: req.user._id,
+      role: 'user', content: body, shared_from_chat_id: src.chat_id,
+      created_at: new Date(),
+    });
+    res.json({ ok: true, chat_all_id: chatAll._id, new_message_id: newId });
+  } catch (e) { next(e); }
 });
 
 export default router;

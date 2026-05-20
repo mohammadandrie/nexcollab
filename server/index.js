@@ -5,12 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { HOST, PORT, CLIENT_DIST } from './config.js';
+import { connect } from './db.js';
 import { seed } from './seed.js';
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
 import chatRouter from './routes/chat.js';
-
-seed();
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -34,6 +33,16 @@ if (fs.existsSync(CLIENT_DIST)) {
     res.status(503).send('Client build missing — run `npm --prefix client run build`.'));
 }
 
-app.listen(PORT, HOST, () => {
-  console.log(`nexcollab listening http://${HOST}:${PORT}`);
+// Catch-all error handler (async route errors land here).
+app.use((err, _req, res, _next) => {
+  console.error('[server] error:', err);
+  res.status(500).json({ detail: 'server_error', message: err.message });
 });
+
+(async () => {
+  await connect();
+  await seed();
+  app.listen(PORT, HOST, () => {
+    console.log(`nexcollab listening http://${HOST}:${PORT}`);
+  });
+})().catch((err) => { console.error(err); process.exit(1); });

@@ -1,7 +1,7 @@
 // Cookie session — signed username (no password, internal team workspace).
 import crypto from 'node:crypto';
 import { SESSION_SECRET } from './config.js';
-import { get } from './db.js';
+import { cU } from './db.js';
 
 export const COOKIE_NAME = 'nexcollab_session';
 
@@ -34,11 +34,15 @@ export function readUsername(req) {
 }
 
 // Express middleware — attaches req.user or 401s.
-export function requireAuth(req, res, next) {
-  const username = readUsername(req);
-  if (!username) return res.status(401).json({ detail: 'not_logged_in' });
-  const row = get('SELECT * FROM users WHERE username = ?', username);
-  if (!row) return res.status(401).json({ detail: 'user_not_found' });
-  req.user = row;
-  next();
+export async function requireAuth(req, res, next) {
+  try {
+    const username = readUsername(req);
+    if (!username) return res.status(401).json({ detail: 'not_logged_in' });
+    const row = await cU().findOne({ username });
+    if (!row) return res.status(401).json({ detail: 'user_not_found' });
+    req.user = row;
+    next();
+  } catch (err) {
+    next(err);
+  }
 }

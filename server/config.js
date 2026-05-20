@@ -1,5 +1,6 @@
-// Runtime config for the Express server. Reuses the FastAPI-era SQLite file.
+// Runtime config. Loads .env (gitignored) before reading process.env.
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -7,14 +8,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, '..');
 export const DATA_DIR = path.join(ROOT, 'data');
 export const CLIENT_DIST = path.join(ROOT, 'client', 'dist');
+export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 
-export const DB_PATH = process.env.NEXCOLLAB_DB
-  || path.join(DATA_DIR, 'nexcollab.sqlite3');
+// Tiny .env loader (no extra dep). Skips comments + blanks.
+const envPath = path.join(ROOT, '.env');
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (!m || line.trim().startsWith('#')) continue;
+    if (process.env[m[1]] === undefined) process.env[m[1]] = m[2];
+  }
+}
+
+export const MONGO_URL = process.env.NEXCOLLAB_MONGO_URL
+  || 'mongodb://127.0.0.1:27017';
+export const MONGO_DB = process.env.NEXCOLLAB_MONGO_DB || 'nexcollab';
 
 export const LLM_BASE_URL = process.env.NEXCOLLAB_LLM_BASE
   || 'http://127.0.0.1:1430/v1';
-export const LLM_API_KEY = process.env.NEXCOLLAB_LLM_KEY
-  || 'enx-99758b6c349c05e5baeda243107a091e2fa03cb75be0d7374f852fc7c41e4b7e';
+export const LLM_API_KEY = process.env.NEXCOLLAB_LLM_KEY || '';
 export const LLM_MODEL = process.env.NEXCOLLAB_LLM_MODEL
   || 'kiro/claude-sonnet-4.6';
 

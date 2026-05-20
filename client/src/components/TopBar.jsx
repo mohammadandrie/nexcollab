@@ -18,6 +18,11 @@ export default function TopBar({ user, projectName, onLogout, onProfileClick }) 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <a href="/docs.html" target="_blank" rel="noreferrer"
+             className="text-[11px] text-neutral-400 hover:text-neutral-200
+                        bg-neutral-900 border border-neutral-800 rounded-full px-2.5 py-1">
+            📖 docs
+          </a>
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 bg-neutral-900
                           border border-neutral-800 rounded-full px-2.5 py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></span>

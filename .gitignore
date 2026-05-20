@@ -9,3 +9,5 @@ data/
 client/dist/
 .vite/
 *.log
+.env
+.env.local
