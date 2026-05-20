@@ -6,6 +6,7 @@ import TopBar from './TopBar.jsx';
 import Sidebar from './Sidebar.jsx';
 import MobileBar from './MobileBar.jsx';
 import ChatView from './ChatView.jsx';
+import GithubPanel from './GithubPanel.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import CreateProjectModal from './CreateProjectModal.jsx';
 import ShareModal from './ShareModal.jsx';
@@ -162,6 +163,10 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
             <div className="text-sm font-semibold">{title}</div>
             <div className="text-[11px] text-neutral-500">{subtitle}</div>
           </div>
+
+          {s.mode === 'project' && s.project?.github_repo && (
+            <GithubPanel project={s.project} />
+          )}
 
           <ChatView
             messages={s.messages}
