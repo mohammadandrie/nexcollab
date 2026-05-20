@@ -4,6 +4,7 @@ import { cC, cM, cP, cU, nextId } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { loadChatOr403 } from '../chat-auth.js';
 import { buildSystemPrompt, buildGeneralPrompt, chatComplete } from '../llm.js';
+import { captureUrl } from '../screenshot.js';
 
 const router = Router();
 
@@ -98,12 +99,32 @@ router.post('/chats/:id/messages', requireAuth, async (req, res, next) => {
       try { reply = await chatComplete(msgs); }
       catch (e) { reply = `_[LLM error: ${e.name}: ${e.message}]_`; }
 
+      // Post-process: pluck up to 2 [!screenshot:URL] markers and capture them.
+      const aiAttachments = [];
+      const matches = [...reply.matchAll(/\[!screenshot:(https?:\/\/[^\s\]]+)\]/gi)].slice(0, 2);
+      for (const m of matches) {
+        try {
+          const file = await captureUrl(m[1]);
+          aiAttachments.push(file);
+        } catch (e) {
+          console.warn('[screenshot] capture failed', m[1], e.message);
+        }
+      }
+      reply = reply.replace(/\[!screenshot:[^\]]+\]\s*/gi, '').trim();
+      if (!reply && aiAttachments.length) {
+        reply = aiAttachments.length === 1
+          ? `Screenshot of ${aiAttachments[0].source_url}`
+          : `${aiAttachments.length} screenshots attached.`;
+      }
+
       const arId = await nextId('messages');
       await cM().insertOne({
         _id: arId, chat_id: chatId, author_id: null,
-        role: 'assistant', content: reply, created_at: new Date(),
+        role: 'assistant', content: reply, attachments: aiAttachments,
+        created_at: new Date(),
       });
-      assistantMsg = { id: arId, role: 'assistant', content: reply, author_id: null };
+      assistantMsg = { id: arId, role: 'assistant', content: reply,
+                       attachments: aiAttachments, author_id: null };
     }
 
     res.json({ user_message_id: userMsgId, assistant_message: assistantMsg });
