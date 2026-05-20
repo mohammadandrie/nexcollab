@@ -2,8 +2,9 @@
 const $ = (id) => document.getElementById(id);
 const state = {
   user: null, projects: [], project: null, members: [],
-  chats: { private: null, all: null },
-  active: 'private',          // 'private' | 'all'
+  chats: { private: null, all: null, general: null },
+  mode: 'project',            // 'project' | 'general'
+  active: 'private',          // 'private' | 'all' (only used when mode='project')
   messages: [],
   shareMessageId: null,
 };
@@ -29,15 +30,31 @@ async function boot() {
   const { projects } = await api('/api/projects');
   state.projects = projects;
   renderProjects();
-  if (!projects.length) { $('messages').innerHTML = empty('Belum ada project. Klik "+ baru" di sidebar.'); }
+
+  // Pre-fetch general chat id (auto-created on first call).
+  try {
+    const g = await api('/api/chats/general');
+    state.chats.general = g.chat_id;
+  } catch (e) { console.warn('general chat unavailable:', e); }
 
   bindTabs();
   bindComposer();
   bindShareModal();
+  bindCreateModal();
   $('logout-btn').addEventListener('click', logout);
-  $('new-project-btn').addEventListener('click', createProjectFlow);
+  $('new-project-btn').addEventListener('click', openCreateModal);
+  $('new-project-btn-mobile').addEventListener('click', openCreateModal);
+  $('general-btn').addEventListener('click', enterGeneralMode);
+  $('general-btn-mobile').addEventListener('click', enterGeneralMode);
+  $('project-select-mobile').addEventListener('change', e => {
+    if (e.target.value) switchProject(parseInt(e.target.value, 10));
+  });
 
-  if (projects.length) await switchProject(projects[0].id);
+  if (projects.length) {
+    await switchProject(projects[0].id);
+  } else {
+    $('messages').innerHTML = empty('Belum ada project. Klik "+ baru" untuk membuat project.');
+  }
 }
 
 async function logout() {
@@ -91,30 +108,51 @@ function renderProjects() {
   const list = $('project-list');
   if (!state.projects.length) {
     list.innerHTML = `<div class="text-[11px] text-neutral-600 italic">belum ada project</div>`;
-    return;
+  } else {
+    list.innerHTML = state.projects.map(p => {
+      const active = state.mode === 'project' && state.project && state.project.id === p.id;
+      const cls = active
+        ? 'bg-indigo-500/10 border-indigo-500/40 text-white'
+        : 'border-transparent text-neutral-300 hover:bg-neutral-800/50';
+      return `
+        <button data-project-id="${p.id}"
+                class="project-btn w-full text-left text-xs p-2 rounded-lg border ${cls}">
+          <div class="flex items-center gap-1.5">
+            <span class="text-neutral-500">▸</span>
+            <span class="truncate">${escHtml(p.name)}</span>
+          </div>
+        </button>`;
+    }).join('');
+    list.querySelectorAll('.project-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchProject(parseInt(btn.dataset.projectId, 10)));
+    });
   }
-  list.innerHTML = state.projects.map(p => {
-    const active = state.project && state.project.id === p.id;
-    const cls = active
-      ? 'bg-indigo-500/10 border-indigo-500/40 text-white'
-      : 'border-transparent text-neutral-300 hover:bg-neutral-800/50';
-    return `
-      <button data-project-id="${p.id}"
-              class="project-btn w-full text-left text-xs p-2 rounded-lg border ${cls}">
-        <div class="flex items-center gap-1.5">
-          <span class="text-neutral-500">▸</span>
-          <span class="truncate">${escHtml(p.name)}</span>
-        </div>
-      </button>`;
-  }).join('');
-  list.querySelectorAll('.project-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchProject(parseInt(btn.dataset.projectId, 10)));
+
+  // Mirror to mobile <select>
+  const sel = $('project-select-mobile');
+  if (sel) {
+    const currentId = state.mode === 'project' && state.project ? state.project.id : '';
+    sel.innerHTML =
+      `<option value="">— pilih project —</option>` +
+      state.projects.map(p =>
+        `<option value="${p.id}" ${p.id === currentId ? 'selected' : ''}>${escHtml(p.name)}</option>`
+      ).join('');
+  }
+
+  // Reflect general-button active state
+  ['general-btn', 'general-btn-mobile'].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('bg-indigo-500/10', state.mode === 'general');
+    el.classList.toggle('border-indigo-500/40', state.mode === 'general');
+    el.classList.toggle('text-white', state.mode === 'general');
   });
 }
 
 async function switchProject(projectId) {
   const proj = state.projects.find(p => p.id === projectId);
   if (!proj) return;
+  state.mode = 'project';
   state.project = proj;
   $('project-name').textContent = proj.name;
   const detail = await api(`/api/projects/${projectId}`);
@@ -123,20 +161,71 @@ async function switchProject(projectId) {
   state.chats.all     = detail.chat_all_id;
   renderProjects();
   renderMembers();
+  updateChatChrome();
   await loadActiveChat();
 }
 
-async function createProjectFlow() {
-  const name = prompt('Nama project baru:');
-  if (!name || !name.trim()) return;
-  const description = prompt('Deskripsi singkat (opsional):') || '';
-  const { project_id } = await api('/api/projects', {
-    method: 'POST',
-    body: JSON.stringify({ name: name.trim(), description: description.trim() }),
+async function enterGeneralMode() {
+  state.mode = 'general';
+  state.project = null;
+  state.members = [];
+  $('project-name').textContent = 'Chat bebas (di luar project)';
+  if (!state.chats.general) {
+    const g = await api('/api/chats/general');
+    state.chats.general = g.chat_id;
+  }
+  renderProjects();
+  renderMembers();
+  updateChatChrome();
+  await loadActiveChat();
+}
+
+function bindCreateModal() {
+  $('create-cancel').addEventListener('click', closeCreateModal);
+  $('create-confirm').addEventListener('click', confirmCreateProject);
+  $('create-modal').addEventListener('click', e => {
+    if (e.target.id === 'create-modal') closeCreateModal();
   });
-  const { projects } = await api('/api/projects');
-  state.projects = projects;
-  await switchProject(project_id);
+  $('create-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); confirmCreateProject(); }
+  });
+}
+function openCreateModal() {
+  $('create-name').value = '';
+  $('create-desc').value = '';
+  $('create-error').classList.add('hidden');
+  $('create-modal').classList.remove('hidden');
+  setTimeout(() => $('create-name').focus(), 30);
+}
+function closeCreateModal() {
+  $('create-modal').classList.add('hidden');
+}
+async function confirmCreateProject() {
+  const name = $('create-name').value.trim();
+  const desc = $('create-desc').value.trim();
+  const errBox = $('create-error');
+  if (!name) {
+    errBox.textContent = 'Nama project wajib diisi.';
+    errBox.classList.remove('hidden');
+    return;
+  }
+  const btn = $('create-confirm');
+  btn.disabled = true; btn.textContent = 'Membuat…';
+  try {
+    const { project_id } = await api('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify({ name, description: desc }),
+    });
+    const { projects } = await api('/api/projects');
+    state.projects = projects;
+    closeCreateModal();
+    await switchProject(project_id);
+  } catch (e) {
+    errBox.textContent = 'Gagal: ' + (e.message || e);
+    errBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Buat';
+  }
 }
 
 function bindTabs() {
@@ -145,26 +234,50 @@ function bindTabs() {
   });
 }
 function switchTab(tab) {
+  if (state.mode !== 'project') return;  // tabs only meaningful in project mode
   state.active = tab;
   document.querySelectorAll('.tab-btn').forEach(b => {
     const on = b.dataset.tab === tab;
     b.classList.toggle('tab-active', on);
     b.classList.toggle('tab-inactive', !on);
   });
-  if (tab === 'private') {
-    $('chat-title').textContent = 'Chat Pribadi';
-    $('chat-subtitle').textContent = 'Brainstorming privat dengan Hermes';
-    $('composer-hint').textContent = 'Hermes akan jawab. Kalau hasilnya bagus, klik "Send to Chat All" buat share ke tim.';
-  } else {
-    $('chat-title').textContent = 'Chat All — decision log';
-    $('chat-subtitle').textContent = 'Shared dengan semua anggota project';
-    $('composer-hint').textContent = 'Pesan di sini langsung tampil ke semua anggota project.';
-  }
+  updateChatChrome();
   loadActiveChat();
 }
 
+function updateChatChrome() {
+  // Show/hide tabs depending on mode (project vs general).
+  const tabsVisible = state.mode === 'project';
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.parentElement.classList.toggle('hidden', !tabsVisible);
+  });
+  // Mobile-tabs container has md:hidden by default; keep that responsive.
+  const mt = $('mobile-tabs');
+  if (mt) mt.classList.toggle('!hidden', !tabsVisible);
+
+  if (state.mode === 'general') {
+    $('chat-title').textContent = 'Chat General';
+    $('chat-subtitle').textContent = 'Bebas — di luar project';
+    $('composer-hint').textContent = 'Brainstorm apa saja. Tidak terhubung ke project manapun.';
+  } else if (state.active === 'private') {
+    $('chat-title').textContent = 'Chat Pribadi';
+    $('chat-subtitle').textContent = `Brainstorming privat dengan Hermes · ${state.project ? state.project.name : ''}`;
+    $('composer-hint').textContent = 'Hermes akan jawab. Kalau hasilnya bagus, klik "Send to Chat All" buat share ke tim.';
+  } else {
+    $('chat-title').textContent = 'Chat All — decision log';
+    $('chat-subtitle').textContent = `Shared dengan semua anggota · ${state.project ? state.project.name : ''}`;
+    $('composer-hint').textContent = 'Pesan di sini langsung tampil ke semua anggota project.';
+  }
+}
+
 async function loadActiveChat() {
-  const chatId = state.chats[state.active];
+  const chatId = state.mode === 'general'
+    ? state.chats.general
+    : state.chats[state.active];
+  if (!chatId) {
+    $('messages').innerHTML = empty('Tidak ada chat aktif.');
+    return;
+  }
   $('messages').innerHTML = empty('memuat…');
   const { messages } = await api(`/api/chats/${chatId}/messages`);
   state.messages = messages;
@@ -174,9 +287,15 @@ async function loadActiveChat() {
 function renderMessages() {
   const box = $('messages');
   if (!state.messages.length) {
-    box.innerHTML = empty(state.active === 'private'
-      ? 'Mulai percakapan dengan Hermes…'
-      : 'Belum ada keputusan yang di-share di project ini.');
+    let placeholder;
+    if (state.mode === 'general') {
+      placeholder = 'Chat bebas. Mulai mengetik apa saja…';
+    } else if (state.active === 'private') {
+      placeholder = 'Mulai percakapan dengan Hermes…';
+    } else {
+      placeholder = 'Belum ada keputusan yang di-share di project ini.';
+    }
+    box.innerHTML = empty(placeholder);
     return;
   }
   box.innerHTML = state.messages.map(m => bubble(m)).join('');
@@ -194,7 +313,7 @@ function bubble(m) {
     : { name: m.author_name || '—', color: m.author_color || '#888',
         letter: m.author_letter || '?', role: m.author_role || '' };
 
-  const canShare = state.active === 'private';
+  const canShare = state.mode === 'project' && state.active === 'private';
   const shareBtn = canShare ? `
     <button data-share-id="${m.id}"
             class="text-[10px] text-indigo-300 hover:text-indigo-200 mt-1.5">
@@ -242,7 +361,10 @@ function bindComposer() {
 }
 
 async function sendMessage(text) {
-  const chatId = state.chats[state.active];
+  const chatId = state.mode === 'general'
+    ? state.chats.general
+    : state.chats[state.active];
+  if (!chatId) return;
   // Optimistic user bubble.
   state.messages.push({
     id: 'tmp-' + Date.now(), role: 'user', content: text,
@@ -250,7 +372,10 @@ async function sendMessage(text) {
     author_color: state.user.color, author_letter: state.user.avatar_letter,
     author_role: state.user.role,
   });
-  if (state.active === 'private') {
+  // LLM replies on private + general; Chat All is human-only.
+  const expectsLLM = state.mode === 'general'
+    || (state.mode === 'project' && state.active === 'private');
+  if (expectsLLM) {
     state.messages.push({ id: 'thinking', role: 'assistant',
                           content: '_Hermes mengetik…_', author_id: null });
   }

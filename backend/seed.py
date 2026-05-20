@@ -61,6 +61,14 @@ def seed() -> None:
                 (project_id, "private", u["id"]),
             )
 
+        # Out-of-project 'general' brainstorm chat — one per user
+        for u in users:
+            cx.execute(
+                "INSERT OR IGNORE INTO chats(project_id,kind,owner_id) "
+                "VALUES (NULL,'general',?)",
+                (u["id"],),
+            )
+
 
 if __name__ == "__main__":
     seed()

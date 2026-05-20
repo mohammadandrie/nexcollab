@@ -8,10 +8,36 @@ from . import db, auth, llm
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
+@router.get("/chats/general")
+def my_general_chat(request: Request):
+    """Returns the caller's out-of-project 'general' chat id (auto-creates)."""
+    user = auth.current_user(request)
+    row = db.fetchone(
+        "SELECT id FROM chats WHERE kind='general' AND owner_id=?",
+        (user["id"],),
+    )
+    if not row:
+        with db.connect() as cx:
+            cur = cx.execute(
+                "INSERT INTO chats(project_id,kind,owner_id) VALUES (NULL,'general',?)",
+                (user["id"],),
+            )
+            chat_id = cur.lastrowid
+    else:
+        chat_id = row["id"]
+    return {"chat_id": chat_id}
+
+
 def _load_chat_or_403(chat_id: int, user: dict) -> dict:
     chat = db.fetchone("SELECT * FROM chats WHERE id = ?", (chat_id,))
     if not chat:
         raise HTTPException(status_code=404, detail="chat_not_found")
+
+    # 'general' chats are out-of-project, owner-only.
+    if chat["kind"] == "general":
+        if chat["owner_id"] != user["id"]:
+            raise HTTPException(status_code=403, detail="not_your_general_chat")
+        return dict(chat)
 
     member = db.fetchone(
         "SELECT 1 FROM project_members WHERE project_id=? AND user_id=?",
@@ -67,17 +93,24 @@ def send_message(chat_id: int, body: SendIn, request: Request):
         user_msg_id = cur.lastrowid
 
     assistant_msg = None
-    # Only private chats trigger an LLM reply. Chat All is human-shared log.
-    if chat["kind"] == "private":
-        proj = db.fetchone("SELECT * FROM projects WHERE id = ?", (chat["project_id"],))
+    # Private (per-project) and General (out-of-project) chats both get LLM replies.
+    # Chat All is human-only — shared decision log.
+    if chat["kind"] in ("private", "general"):
+        if chat["kind"] == "private":
+            proj = db.fetchone("SELECT * FROM projects WHERE id = ?", (chat["project_id"],))
+            sys_prompt = llm.build_system_prompt(
+                name=user["name"], role=user["role"],
+                project_name=proj["name"] if proj else "Nexcollab",
+                project_desc=proj["description"] if proj else "",
+            )
+        else:
+            sys_prompt = llm.build_general_prompt(
+                name=user["name"], role=user["role"],
+            )
+
         history = db.fetchall(
             "SELECT role, content FROM messages WHERE chat_id=? ORDER BY id ASC LIMIT 40",
             (chat_id,),
-        )
-        sys_prompt = llm.build_system_prompt(
-            name=user["name"], role=user["role"],
-            project_name=proj["name"] if proj else "Nexcollab",
-            project_desc=proj["description"] if proj else "",
         )
         msgs = [{"role": "system", "content": sys_prompt}]
         msgs.extend({"role": r["role"], "content": r["content"]} for r in history)

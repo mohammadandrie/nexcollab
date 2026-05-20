@@ -29,12 +29,13 @@ CREATE TABLE IF NOT EXISTS project_members (
     PRIMARY KEY (project_id, user_id)
 );
 
--- One private chat per (project, user) plus one shared 'all' chat per project.
+-- One private chat per (project, user), one 'all' per project,
+-- and one 'general' per user (project_id NULL — out-of-project brainstorm).
 CREATE TABLE IF NOT EXISTS chats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    kind TEXT NOT NULL,             -- 'private' | 'all'
-    owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,  -- null for 'all'
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,             -- 'private' | 'all' | 'general'
+    owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE(project_id, kind, owner_id)
 );
 
@@ -56,6 +57,32 @@ CREATE INDEX IF NOT EXISTS idx_chats_project ON chats(project_id);
 def init_db() -> None:
     with connect() as cx:
         cx.executescript(SCHEMA)
+        _migrate(cx)
+
+
+def _migrate(cx: sqlite3.Connection) -> None:
+    """Idempotent runtime migrations for older DBs."""
+    # v1 → v2: chats.project_id became nullable + 'general' kind allowed.
+    row = cx.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='chats'"
+    ).fetchone()
+    if row and "project_id INTEGER NOT NULL" in row["sql"]:
+        cx.executescript("""
+            BEGIN;
+            CREATE TABLE chats_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL,
+                owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                UNIQUE(project_id, kind, owner_id)
+            );
+            INSERT INTO chats_new(id, project_id, kind, owner_id)
+                SELECT id, project_id, kind, owner_id FROM chats;
+            DROP TABLE chats;
+            ALTER TABLE chats_new RENAME TO chats;
+            CREATE INDEX IF NOT EXISTS idx_chats_project ON chats(project_id);
+            COMMIT;
+        """)
 
 
 @contextmanager

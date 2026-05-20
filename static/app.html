@@ -61,6 +61,15 @@
   <!-- Sidebar -->
   <aside class="hidden md:block w-64 flex-shrink-0">
     <div class="bg-neutral-900/40 border border-neutral-800 rounded-xl p-3">
+      <div class="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">Chat Bebas</div>
+      <button id="general-btn"
+              class="w-full text-left text-xs p-2 rounded-lg border border-transparent
+                     text-neutral-300 hover:bg-neutral-800/50 mb-4 flex items-center gap-2">
+        <span>💬</span>
+        <span>General</span>
+        <span class="ml-auto text-[10px] text-neutral-500">bebas</span>
+      </button>
+
       <div class="flex items-center justify-between mb-2">
         <div class="text-[11px] uppercase tracking-wider text-neutral-500">Project</div>
         <button id="new-project-btn"
@@ -88,8 +97,24 @@
   <!-- Main -->
   <main class="flex-1 min-w-0">
 
+    <!-- Mobile bar: General + Project picker + new -->
+    <div class="md:hidden flex gap-1.5 mb-2 items-center text-xs">
+      <button id="general-btn-mobile"
+              class="px-2.5 py-1.5 rounded-lg bg-neutral-900/60 border border-neutral-800
+                     text-neutral-300 flex items-center gap-1.5">
+        💬 <span>General</span>
+      </button>
+      <select id="project-select-mobile"
+              class="flex-1 px-2 py-1.5 rounded-lg bg-neutral-900/60 border border-neutral-800
+                     text-neutral-300"></select>
+      <button id="new-project-btn-mobile"
+              class="px-2.5 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30
+                     text-indigo-300">+ baru</button>
+    </div>
+
     <!-- Mobile tabs -->
-    <div class="md:hidden flex gap-1 mb-3 p-1 bg-neutral-900/60 border border-neutral-800 rounded-lg">
+    <div id="mobile-tabs"
+         class="md:hidden flex gap-1 mb-3 p-1 bg-neutral-900/60 border border-neutral-800 rounded-lg">
       <button data-tab="private" class="tab-btn flex-1 text-xs py-1.5 rounded tab-active">🔒 Pribadi</button>
       <button data-tab="all"     class="tab-btn flex-1 text-xs py-1.5 rounded tab-inactive">💬 Chat All</button>
     </div>
@@ -141,6 +166,30 @@
       <button id="share-cancel" class="text-xs text-neutral-400 px-3 py-1.5">Batal</button>
       <button id="share-confirm" class="promote-btn text-white text-xs px-3 py-1.5 rounded-lg">
         Posting
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Project modal -->
+<div id="create-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+     style="background: rgba(0,0,0,.6); backdrop-filter: blur(8px);">
+  <div class="w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+    <div class="text-sm font-semibold mb-1">Project baru</div>
+    <div class="text-[11px] text-neutral-500 mb-3">
+      Setiap anggota tim dapat Chat Pribadi sendiri di sini, plus satu Chat All bersama.
+    </div>
+    <input id="create-name" placeholder="Nama project"
+           class="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm mb-2
+                  focus:outline-none focus:border-indigo-500/50">
+    <textarea id="create-desc" rows="2" placeholder="Deskripsi singkat (opsional)"
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm
+                     resize-none mb-3 focus:outline-none focus:border-indigo-500/50"></textarea>
+    <div id="create-error" class="hidden text-[11px] text-red-400 mb-2"></div>
+    <div class="flex justify-end gap-2">
+      <button id="create-cancel" class="text-xs text-neutral-400 px-3 py-1.5">Batal</button>
+      <button id="create-confirm" class="promote-btn text-white text-xs px-3 py-1.5 rounded-lg">
+        Buat
       </button>
     </div>
   </div>

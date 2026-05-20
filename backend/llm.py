@@ -24,6 +24,20 @@ def build_system_prompt(name: str, role: str, project_name: str, project_desc: s
     )
 
 
+GENERAL_PROMPT_TEMPLATE = (
+    "You are Hermes, the AI assistant inside Nexcollab. This is {name}'s "
+    "general (out-of-project) chat — a free-form scratchpad for whatever they "
+    "want to think through that isn't tied to a specific project. Their team "
+    "role is {role}, but treat this space as personal: no project scope, no "
+    "team context. Be direct, concise, and reply in the user's language "
+    "(default Indonesian if mixed)."
+)
+
+
+def build_general_prompt(name: str, role: str) -> str:
+    return GENERAL_PROMPT_TEMPLATE.format(name=name, role=role)
+
+
 def chat_complete(messages: Iterable[dict], *, model: str | None = None,
                   timeout: float = 60.0) -> str:
     """Blocking call. Returns assistant text or raises httpx error."""
