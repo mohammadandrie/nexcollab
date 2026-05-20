@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<title>Nexcollab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background:#0a0a0a; color:#e5e5e5; }
+  .scrollbar::-webkit-scrollbar { width:6px; height:6px; }
+  .scrollbar::-webkit-scrollbar-thumb { background:#2a2a2a; border-radius:3px; }
+  .role-PM  { color:#a78bfa; background:rgba(167,139,250,.12); border-color:rgba(167,139,250,.25); }
+  .role-UX  { color:#f472b6; background:rgba(244,114,182,.12); border-color:rgba(244,114,182,.25); }
+  .role-DEV { color:#34d399; background:rgba(52,211,153,.12);  border-color:rgba(52,211,153,.25); }
+  .role-QA  { color:#fbbf24; background:rgba(251,191,36,.12);  border-color:rgba(251,191,36,.25); }
+  .hermes-bubble { background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(168,85,247,.05));
+                   border-left:2px solid #818cf8; }
+  .user-bubble   { background:#161616; }
+  .promote-btn   { background:linear-gradient(135deg,#6366f1,#8b5cf6); }
+  .promote-btn:hover { background:linear-gradient(135deg,#4f46e5,#7c3aed); }
+  .tab-active   { background:#1a1a1a; color:#fff; border-color:#333; }
+  .tab-inactive { color:#888; }
+  .markdown p { margin: 0 0 .35rem 0; }
+  .markdown strong { color:#fff; }
+  .markdown em { color:#cbd5e1; }
+  .markdown code { background:#0d0d0d; padding:.1rem .35rem; border-radius:4px;
+                   font-family: 'JetBrains Mono', ui-monospace, monospace; font-size:.85em; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .live-dot { animation: pulse-dot 2s infinite; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Top bar -->
+<header class="sticky top-0 z-30 bg-black/70 backdrop-blur border-b border-neutral-800">
+  <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2 min-w-0">
+      <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600
+                  flex items-center justify-center text-white text-sm font-bold flex-shrink-0">N</div>
+      <div class="min-w-0">
+        <div class="font-semibold text-sm truncate">Nexcollab</div>
+        <div id="project-name" class="text-[10px] text-neutral-500 -mt-0.5 truncate">…</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5 text-[11px] text-neutral-400 bg-neutral-900
+                  border border-neutral-800 rounded-full px-2.5 py-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></span>
+        Hermes online
+      </div>
+      <div id="user-badge" class="flex items-center gap-2"></div>
+      <button id="logout-btn" class="text-[11px] text-neutral-500 hover:text-neutral-300">logout</button>
+    </div>
+  </div>
+</header>
+
+<!-- Layout -->
+<div class="max-w-7xl mx-auto flex gap-4 p-3 sm:p-4">
+
+  <!-- Sidebar -->
+  <aside class="hidden md:block w-64 flex-shrink-0">
+    <div class="bg-neutral-900/40 border border-neutral-800 rounded-xl p-3">
+      <div class="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">Tab</div>
+      <div class="space-y-1">
+        <button data-tab="private" class="tab-btn w-full flex items-center gap-2 p-2 rounded-lg
+                                          border border-transparent text-sm tab-active">
+          <span>🔒</span><span>Chat Pribadi</span>
+        </button>
+        <button data-tab="all" class="tab-btn w-full flex items-center gap-2 p-2 rounded-lg
+                                       border border-transparent text-sm tab-inactive">
+          <span>💬</span><span>Chat All</span>
+        </button>
+      </div>
+
+      <div class="text-[11px] uppercase tracking-wider text-neutral-500 mt-5 mb-2">Tim</div>
+      <div id="member-list" class="space-y-1.5"></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 min-w-0">
+
+    <!-- Mobile tabs -->
+    <div class="md:hidden flex gap-1 mb-3 p-1 bg-neutral-900/60 border border-neutral-800 rounded-lg">
+      <button data-tab="private" class="tab-btn flex-1 text-xs py-1.5 rounded tab-active">🔒 Pribadi</button>
+      <button data-tab="all"     class="tab-btn flex-1 text-xs py-1.5 rounded tab-inactive">💬 Chat All</button>
+    </div>
+
+    <div id="chat-header" class="flex items-center justify-between mb-2 px-1">
+      <div>
+        <div id="chat-title" class="text-sm font-semibold">Chat Pribadi</div>
+        <div id="chat-subtitle" class="text-[11px] text-neutral-500">Brainstorming privat dengan Hermes</div>
+      </div>
+    </div>
+
+    <div id="messages"
+         class="scrollbar bg-neutral-900/30 border border-neutral-800 rounded-xl p-3 sm:p-4
+                space-y-3 overflow-y-auto"
+         style="height: calc(100vh - 220px); min-height: 380px;">
+      <div class="text-center text-xs text-neutral-600 py-12">memuat…</div>
+    </div>
+
+    <form id="composer" class="mt-3 flex gap-2">
+      <textarea id="composer-text" rows="1"
+                placeholder="Tulis pesan… (Enter untuk kirim, Shift+Enter baris baru)"
+                class="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2
+                       text-sm resize-none focus:outline-none focus:border-indigo-500/50"></textarea>
+      <button id="send-btn" type="submit"
+              class="promote-btn text-white text-sm font-medium px-4 rounded-xl
+                     disabled:opacity-50 disabled:cursor-not-allowed">
+        Kirim
+      </button>
+    </form>
+    <div id="composer-hint" class="text-[10px] text-neutral-600 mt-1 px-1"></div>
+  </main>
+</div>
+
+<!-- Share modal -->
+<div id="share-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center px-4"
+     style="background: rgba(0,0,0,.6); backdrop-filter: blur(8px);">
+  <div class="w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+    <div class="text-sm font-semibold mb-2">Send to Chat All</div>
+    <div class="text-[11px] text-neutral-500 mb-3">
+      Posting ke decision log project. Semua anggota akan lihat.
+    </div>
+    <div id="share-preview"
+         class="text-xs text-neutral-300 bg-neutral-950 border border-neutral-800 rounded-lg
+                p-2 mb-3 max-h-40 overflow-y-auto scrollbar"></div>
+    <input id="share-headline" placeholder="Headline (opsional)"
+           class="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm
+                  mb-3 focus:outline-none focus:border-indigo-500/50">
+    <div class="flex justify-end gap-2">
+      <button id="share-cancel" class="text-xs text-neutral-400 px-3 py-1.5">Batal</button>
+      <button id="share-confirm" class="promote-btn text-white text-xs px-3 py-1.5 rounded-lg">
+        Posting
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

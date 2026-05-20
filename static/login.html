@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexcollab — Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background:#0a0a0a; color:#e5e5e5; }
+</style>
+</head>
+<body class="min-h-screen flex items-center justify-center px-4">
+<div class="w-full max-w-sm">
+  <div class="flex items-center gap-2 mb-6 justify-center">
+    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600
+                flex items-center justify-center text-white font-bold">N</div>
+    <div>
+      <div class="font-semibold">Nexcollab</div>
+      <div class="text-[11px] text-neutral-500 -mt-0.5">enowX team workspace</div>
+    </div>
+  </div>
+
+  <div class="bg-neutral-900/60 border border-neutral-800 rounded-xl p-5">
+    <div class="text-sm text-neutral-300 mb-3">Pilih siapa kamu:</div>
+    <div id="users" class="grid grid-cols-1 gap-2"></div>
+    <div id="err" class="text-xs text-red-400 mt-3 hidden"></div>
+  </div>
+  <p class="text-[11px] text-neutral-600 text-center mt-4">
+    Internal team — no password. Pilih akun lalu langsung masuk.
+  </p>
+</div>
+
+<script>
+const ROLE_LABEL = { PM:'Project Manager', UX:'UX Designer', DEV:'Developer', QA:'QA' };
+
+async function loadUsers() {
+  const r = await fetch('/api/auth/users');
+  const { users } = await r.json();
+  const root = document.getElementById('users');
+  root.innerHTML = users.map(u => `
+    <button data-username="${u.username}"
+      class="user-btn flex items-center gap-3 p-2.5 rounded-lg bg-neutral-950
+             border border-neutral-800 hover:border-neutral-700 text-left">
+      <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+           style="background:${u.color}22;color:${u.color};border:1px solid ${u.color}55">
+        ${u.avatar_letter}
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-sm">${u.name}</div>
+        <div class="text-[11px] text-neutral-500">${ROLE_LABEL[u.role] || u.role}</div>
+      </div>
+      <span class="text-neutral-600 text-xs">→</span>
+    </button>
+  `).join('');
+  root.querySelectorAll('.user-btn').forEach(btn => {
+    btn.addEventListener('click', () => login(btn.dataset.username));
+  });
+}
+
+async function login(username) {
+  const err = document.getElementById('err');
+  err.classList.add('hidden');
+  const r = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  if (!r.ok) {
+    err.textContent = 'Login gagal: ' + r.status;
+    err.classList.remove('hidden');
+    return;
+  }
+  location.href = '/';
+}
+
+loadUsers();
+</script>
+</body>
+</html>
