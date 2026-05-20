@@ -12,6 +12,7 @@ import projectsRouter from './routes/projects.js';
 import chatRouter from './routes/chat.js';
 import githubRouter from './routes/github.js';
 import uploadRouter from './routes/upload.js';
+import aiRouter from './routes/ai.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -24,6 +25,7 @@ app.use('/api', projectsRouter);
 app.use('/api', chatRouter);
 app.use('/api', githubRouter);
 app.use('/api', uploadRouter);
+app.use('/api', aiRouter);
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '7d', immutable: true }));
 
 // React client (built by Vite into client/dist).

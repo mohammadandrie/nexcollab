@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import MentionAutocomplete from './MentionAutocomplete.jsx';
+import AIImageButton from './AIImageButton.jsx';
 
 export default function ChatComposer({ hint, disabled, onSend, mentionUsers = [] }) {
   const [text, setText] = useState('');
@@ -144,6 +145,10 @@ export default function ChatComposer({ hint, disabled, onSend, mentionUsers = []
           multiple
           className="hidden"
           onChange={(e) => uploadFiles(e.target.files)}
+        />
+        <AIImageButton
+          disabled={uploading || disabled}
+          onResult={(file) => setAttachments((prev) => [...prev, file])}
         />
         <button type="button"
           onClick={() => fileRef.current?.click()}
