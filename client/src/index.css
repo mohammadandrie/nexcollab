@@ -55,6 +55,14 @@ body {
 .theme-input:focus { outline: none; border-color: rgba(99,102,241,.5); }
 .theme-muted { color: var(--fg-muted); }
 
+.mention {
+  color: #818cf8;
+  background: rgba(129,140,248,.12);
+  border-radius: 4px;
+  padding: 0 3px;
+  font-weight: 500;
+}
+
 .scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
 .scrollbar::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
 .scrollbar::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }

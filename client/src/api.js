@@ -23,6 +23,8 @@ export function mdLite(s) {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|\W)_([^_]+)_(?=\W|$)/g, '$1<em>$2</em>')
+    .replace(/(^|\s)@([a-zA-Z0-9_-]+)/g,
+             '$1<span class="mention">@$2</span>')
     .split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 }
 

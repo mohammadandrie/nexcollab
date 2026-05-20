@@ -172,6 +172,7 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
             hint={hint}
             disabled={!s.activeChatId}
             onSend={send}
+            mentionUsers={s.allUsers}
           />
         </main>
       </div>
