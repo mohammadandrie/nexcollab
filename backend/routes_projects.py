@@ -1,6 +1,7 @@
 """Project + chat listing routes."""
 from __future__ import annotations
 from fastapi import APIRouter, Request, HTTPException
+from pydantic import BaseModel
 
 from . import db, auth
 
@@ -62,3 +63,49 @@ def project_detail(project_id: int, request: Request):
         "my_private_chat_id": private["id"] if private else None,
         "chat_all_id": chat_all["id"] if chat_all else None,
     }
+
+
+class CreateProjectIn(BaseModel):
+    name: str
+    description: str | None = None
+    member_ids: list[int] | None = None  # default: all users
+
+
+@router.post("/projects")
+def create_project(body: CreateProjectIn, request: Request):
+    user = auth.current_user(request)
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name_required")
+
+    with db.connect() as cx:
+        cur = cx.execute(
+            "INSERT INTO projects(name,description) VALUES (?,?)",
+            (name, (body.description or "").strip()),
+        )
+        project_id = cur.lastrowid
+
+        # Members: explicit list, else everyone. Always include creator.
+        if body.member_ids:
+            ids = set(body.member_ids) | {user["id"]}
+        else:
+            ids = {r["id"] for r in cx.execute("SELECT id FROM users").fetchall()}
+
+        for uid in ids:
+            cx.execute(
+                "INSERT OR IGNORE INTO project_members(project_id,user_id) VALUES (?,?)",
+                (project_id, uid),
+            )
+
+        # One Chat All + per-member private chats
+        cx.execute(
+            "INSERT INTO chats(project_id,kind,owner_id) VALUES (?,?,NULL)",
+            (project_id, "all"),
+        )
+        for uid in ids:
+            cx.execute(
+                "INSERT INTO chats(project_id,kind,owner_id) VALUES (?,?,?)",
+                (project_id, "private", uid),
+            )
+
+    return {"ok": True, "project_id": project_id}

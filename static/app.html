@@ -61,6 +61,13 @@
   <!-- Sidebar -->
   <aside class="hidden md:block w-64 flex-shrink-0">
     <div class="bg-neutral-900/40 border border-neutral-800 rounded-xl p-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-[11px] uppercase tracking-wider text-neutral-500">Project</div>
+        <button id="new-project-btn"
+                class="text-[10px] text-indigo-300 hover:text-indigo-200">+ baru</button>
+      </div>
+      <div id="project-list" class="space-y-1 mb-4"></div>
+
       <div class="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">Tab</div>
       <div class="space-y-1">
         <button data-tab="private" class="tab-btn w-full flex items-center gap-2 p-2 rounded-lg

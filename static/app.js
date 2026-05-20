@@ -1,7 +1,7 @@
 // Nexcollab frontend — vanilla JS, ~250 lines.
 const $ = (id) => document.getElementById(id);
 const state = {
-  user: null, project: null, members: [],
+  user: null, projects: [], project: null, members: [],
   chats: { private: null, all: null },
   active: 'private',          // 'private' | 'all'
   messages: [],
@@ -27,22 +27,17 @@ async function boot() {
   renderUserBadge();
 
   const { projects } = await api('/api/projects');
-  if (!projects.length) { $('messages').innerHTML = empty('Belum ada project.'); return; }
-  state.project = projects[0];
-  $('project-name').textContent = state.project.name;
-
-  const detail = await api(`/api/projects/${state.project.id}`);
-  state.members = detail.members;
-  state.chats.private = detail.my_private_chat_id;
-  state.chats.all     = detail.chat_all_id;
-  renderMembers();
+  state.projects = projects;
+  renderProjects();
+  if (!projects.length) { $('messages').innerHTML = empty('Belum ada project. Klik "+ baru" di sidebar.'); }
 
   bindTabs();
   bindComposer();
   bindShareModal();
   $('logout-btn').addEventListener('click', logout);
+  $('new-project-btn').addEventListener('click', createProjectFlow);
 
-  await loadActiveChat();
+  if (projects.length) await switchProject(projects[0].id);
 }
 
 async function logout() {
@@ -90,6 +85,58 @@ function renderMembers() {
       <span class="text-neutral-300">${m.name}</span>
       <span class="role-${m.role} ml-auto text-[9px] px-1.5 py-0.5 rounded border">${m.role}</span>
     </div>`).join('');
+}
+
+function renderProjects() {
+  const list = $('project-list');
+  if (!state.projects.length) {
+    list.innerHTML = `<div class="text-[11px] text-neutral-600 italic">belum ada project</div>`;
+    return;
+  }
+  list.innerHTML = state.projects.map(p => {
+    const active = state.project && state.project.id === p.id;
+    const cls = active
+      ? 'bg-indigo-500/10 border-indigo-500/40 text-white'
+      : 'border-transparent text-neutral-300 hover:bg-neutral-800/50';
+    return `
+      <button data-project-id="${p.id}"
+              class="project-btn w-full text-left text-xs p-2 rounded-lg border ${cls}">
+        <div class="flex items-center gap-1.5">
+          <span class="text-neutral-500">▸</span>
+          <span class="truncate">${escHtml(p.name)}</span>
+        </div>
+      </button>`;
+  }).join('');
+  list.querySelectorAll('.project-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchProject(parseInt(btn.dataset.projectId, 10)));
+  });
+}
+
+async function switchProject(projectId) {
+  const proj = state.projects.find(p => p.id === projectId);
+  if (!proj) return;
+  state.project = proj;
+  $('project-name').textContent = proj.name;
+  const detail = await api(`/api/projects/${projectId}`);
+  state.members = detail.members;
+  state.chats.private = detail.my_private_chat_id;
+  state.chats.all     = detail.chat_all_id;
+  renderProjects();
+  renderMembers();
+  await loadActiveChat();
+}
+
+async function createProjectFlow() {
+  const name = prompt('Nama project baru:');
+  if (!name || !name.trim()) return;
+  const description = prompt('Deskripsi singkat (opsional):') || '';
+  const { project_id } = await api('/api/projects', {
+    method: 'POST',
+    body: JSON.stringify({ name: name.trim(), description: description.trim() }),
+  });
+  const { projects } = await api('/api/projects');
+  state.projects = projects;
+  await switchProject(project_id);
 }
 
 function bindTabs() {
