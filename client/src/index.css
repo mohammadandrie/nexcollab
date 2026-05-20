@@ -42,6 +42,13 @@ body {
   border-left: 2px solid #818cf8;
 }
 .user-bubble { background: var(--bg-2); }
+.flash-highlight {
+  animation: flash-hl 1.4s ease-out;
+}
+@keyframes flash-hl {
+  0%   { box-shadow: 0 0 0 2px rgba(251,191,36,.6); }
+  100% { box-shadow: 0 0 0 2px rgba(251,191,36,0); }
+}
 .promote-btn { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
 .promote-btn:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
 

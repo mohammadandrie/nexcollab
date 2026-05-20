@@ -19,6 +19,7 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
   const [shareMsg, setShareMsg] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [settingsProject, setSettingsProject] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null); // {id, role, content, author_name, author_color}
 
   const projectName = s.mode === 'general'
     ? 'General chat (out of project)'
@@ -39,10 +40,14 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
   })();
   const [title, subtitle, hint] = titleSubtitle;
 
-  async function send(text, attachments = []) {
+  async function send(text, attachments = [], replyToId = null) {
     // Optimistic user bubble + thinking placeholder where appropriate.
     const expectsLLM = s.mode === 'general'
-      || (s.mode === 'project' && s.activeTab === 'private');
+      || (s.mode === 'project' && s.activeTab === 'private')
+      || (s.mode === 'project' && s.activeTab === 'all'
+          && /(^|\s)@hermes\b/i.test(text));
+    const replySnapshot = replyToId
+      ? s.messages.find((m) => m.id === replyToId) : null;
     s.setMessages((prev) => {
       const next = [...prev, {
         id: 'tmp-' + Date.now(), role: 'user', content: text,
@@ -50,6 +55,18 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
         author_id: user.id, author_name: user.name,
         author_color: user.color, author_letter: user.avatar_letter,
         author_role: user.role,
+        reply_to_id: replyToId,
+        reply_to: replySnapshot ? {
+          id: replySnapshot.id,
+          author_name: replySnapshot.role === 'assistant'
+            ? 'Hermes' : (replySnapshot.author_name || '—'),
+          author_color: replySnapshot.role === 'assistant'
+            ? '#818cf8' : (replySnapshot.author_color || '#888'),
+          excerpt: String(replySnapshot.content || '')
+            .replace(/\s+/g, ' ').slice(0, 120),
+          has_attachment: Array.isArray(replySnapshot.attachments)
+            && replySnapshot.attachments.length > 0,
+        } : null,
       }];
       if (expectsLLM) {
         next.push({ id: 'thinking', role: 'assistant',
@@ -57,10 +74,12 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
       }
       return next;
     });
+    setReplyingTo(null);
     try {
       await api(`/api/chats/${s.activeChatId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content: text, attachments }),
+        body: JSON.stringify({ content: text, attachments,
+                               reply_to_id: replyToId }),
       });
     } catch (e) { console.error(e); }
     await s.reloadMessages();
@@ -96,6 +115,14 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
       if (remaining.length) await s.switchProject(remaining[0].id);
       else await s.enterGeneral();
     }
+  }
+
+  async function onPin(msg) {
+    if (typeof msg.id !== 'number') return;
+    try {
+      await api(`/api/messages/${msg.id}/pin`, { method: 'POST' });
+      await s.reloadMessages();
+    } catch (e) { console.error(e); }
   }
 
   return (
@@ -173,6 +200,8 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
             mode={s.mode}
             activeTab={s.activeTab}
             onShare={(m) => setShareMsg(m)}
+            onReply={(m) => setReplyingTo(m)}
+            onPin={onPin}
           />
 
           <ChatComposer
@@ -180,6 +209,8 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
             disabled={!s.activeChatId}
             onSend={send}
             mentionUsers={s.allUsers}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
           />
         </main>
       </div>

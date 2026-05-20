@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import MentionAutocomplete from './MentionAutocomplete.jsx';
 
-export default function ChatComposer({ hint, disabled, onSend, mentionUsers = [] }) {
+export default function ChatComposer({
+  hint, disabled, onSend, mentionUsers = [],
+  replyingTo, onCancelReply,
+}) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [mention, setMention] = useState(null); // {start, query} | null
@@ -74,8 +77,9 @@ export default function ChatComposer({ hint, disabled, onSend, mentionUsers = []
     if ((!v && attachments.length === 0) || busy || disabled) return;
     setBusy(true);
     const sentAttachments = attachments;
+    const sentReplyId = replyingTo?.id ?? null;
     setText(''); setAttachments([]);
-    try { await onSend(v, sentAttachments); }
+    try { await onSend(v, sentAttachments, sentReplyId); }
     finally { setBusy(false); taRef.current?.focus(); }
   }
 
@@ -103,6 +107,24 @@ export default function ChatComposer({ hint, disabled, onSend, mentionUsers = []
 
   return (
     <>
+      {replyingTo && (
+        <div className="mt-2 flex items-center gap-2 px-2 py-1.5 rounded-md
+                        bg-[color:var(--bg-2)] border-l-2
+                        border border-[color:var(--border)]"
+             style={{ borderLeftColor: replyingTo.author_color || '#888' }}>
+          <span className="text-[11px] theme-muted">Replying to</span>
+          <span className="text-[11px] font-medium"
+                style={{ color: replyingTo.author_color || '#aaa' }}>
+            {replyingTo.author_name || (replyingTo.role === 'assistant' ? 'Hermes' : '—')}
+          </span>
+          <span className="text-[11px] theme-muted truncate flex-1">
+            · {String(replyingTo.content || '').replace(/\s+/g, ' ').slice(0, 80) || '(empty)'}
+          </span>
+          <button type="button" onClick={onCancelReply}
+            className="text-[11px] theme-muted hover:opacity-80 px-1"
+            title="Cancel reply">✕</button>
+        </div>
+      )}
       {(attachments.length > 0 || uploading || upErr) && (
         <div className="mt-2 flex flex-wrap gap-1.5 items-center">
           {attachments.map((a, i) => (

@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { cC, cM, cP, cU, nextId } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { loadChatOr403 } from '../chat-auth.js';
-import { buildSystemPrompt, buildGeneralPrompt, chatComplete } from '../llm.js';
+import { buildSystemPrompt, buildGeneralPrompt, buildChatAllPrompt, chatComplete } from '../llm.js';
 import { captureUrl } from '../screenshot.js';
 
 const router = Router();
@@ -32,6 +32,23 @@ router.get('/chats/:id/messages', requireAuth, async (req, res, next) => {
       { projection: { _id: 1, name: 1, role: 1, color: 1, avatar_letter: 1 } },
     ).toArray();
     const byId = Object.fromEntries(authors.map((u) => [u._id, u]));
+    // Lookup table for reply targets (within same chat).
+    const msgById = Object.fromEntries(msgs.map((m) => [m._id, m]));
+
+    function summarizeReply(targetId) {
+      const t = msgById[targetId];
+      if (!t) return null;
+      const ta = t.author_id ? byId[t.author_id] : null;
+      const isAi = t.role === 'assistant';
+      const excerpt = String(t.content || '').replace(/\s+/g, ' ').slice(0, 120);
+      return {
+        id: t._id,
+        author_name: isAi ? 'Hermes' : (ta?.name ?? '—'),
+        author_color: isAi ? '#818cf8' : (ta?.color ?? '#888'),
+        excerpt,
+        has_attachment: Array.isArray(t.attachments) && t.attachments.length > 0,
+      };
+    }
 
     const messages = msgs.map((m) => {
       const a = m.author_id ? byId[m.author_id] : null;
@@ -44,6 +61,11 @@ router.get('/chats/:id/messages', requireAuth, async (req, res, next) => {
         author_role: a?.role ?? null,
         author_color: a?.color ?? null,
         author_letter: a?.avatar_letter ?? null,
+        reply_to_id: m.reply_to_id ?? null,
+        reply_to: m.reply_to_id ? summarizeReply(m.reply_to_id) : null,
+        pinned: !!m.pinned,
+        pinned_at: m.pinned_at ?? null,
+        pinned_by: m.pinned_by ?? null,
       };
     });
     res.json({ messages });
@@ -70,10 +92,24 @@ router.post('/chats/:id/messages', requireAuth, async (req, res, next) => {
       return res.status(400).json({ detail: 'empty_message' });
     }
 
+    // Optional reply_to_id — must reference a message in the same chat.
+    let replyToId = null;
+    if (req.body?.reply_to_id != null) {
+      const candidate = parseInt(req.body.reply_to_id, 10);
+      if (Number.isFinite(candidate)) {
+        const target = await cM().findOne(
+          { _id: candidate, chat_id: chatId },
+          { projection: { _id: 1 } },
+        );
+        if (target) replyToId = candidate;
+      }
+    }
+
     const userMsgId = await nextId('messages');
     await cM().insertOne({
       _id: userMsgId, chat_id: chatId, author_id: req.user._id,
       role: 'user', content: text, attachments,
+      reply_to_id: replyToId,
       created_at: new Date(),
     });
 
@@ -121,10 +157,56 @@ router.post('/chats/:id/messages', requireAuth, async (req, res, next) => {
       await cM().insertOne({
         _id: arId, chat_id: chatId, author_id: null,
         role: 'assistant', content: reply, attachments: aiAttachments,
+        reply_to_id: userMsgId,
         created_at: new Date(),
       });
       assistantMsg = { id: arId, role: 'assistant', content: reply,
-                       attachments: aiAttachments, author_id: null };
+                       attachments: aiAttachments, author_id: null,
+                       reply_to_id: userMsgId };
+    }
+
+    // Chat All: if user @-mentions hermes, auto-reply with full-history (A3) context.
+    if (chat.kind === 'all' && /(^|\s)@hermes\b/i.test(text)) {
+      const proj = await cP().findOne({ _id: chat.project_id });
+      const sysPrompt = buildChatAllPrompt(
+        req.user.name, req.user.role,
+        proj?.name || 'Nexcollab', proj?.description || '',
+      );
+      // A3 = entire Chat All history (cap at 200 to protect token budget).
+      const history = await cM().find({ chat_id: chatId })
+        .sort({ _id: 1 }).limit(200)
+        .project({ _id: 1, role: 1, content: 1, author_id: 1, reply_to_id: 1 })
+        .toArray();
+      const aIds = [...new Set(history.map((h) => h.author_id).filter(Boolean))];
+      const aRows = await cU().find(
+        { _id: { $in: aIds } }, { projection: { _id: 1, name: 1, role: 1 } },
+      ).toArray();
+      const aMap = Object.fromEntries(aRows.map((u) => [u._id, u]));
+      const llmMsgs = [{ role: 'system', content: sysPrompt }];
+      for (const h of history) {
+        if (h.role === 'assistant') {
+          llmMsgs.push({ role: 'assistant', content: h.content });
+        } else {
+          const u = h.author_id ? aMap[h.author_id] : null;
+          const tag = u ? `${u.name} (${u.role})` : 'unknown';
+          const ref = h.reply_to_id ? ` [↪ replying to msg #${h.reply_to_id}]` : '';
+          llmMsgs.push({ role: 'user',
+            content: `[#${h._id} · ${tag}${ref}] ${h.content}` });
+        }
+      }
+      let reply2;
+      try { reply2 = await chatComplete(llmMsgs); }
+      catch (e) { reply2 = `_[LLM error: ${e.name}: ${e.message}]_`; }
+      const arId2 = await nextId('messages');
+      await cM().insertOne({
+        _id: arId2, chat_id: chatId, author_id: null,
+        role: 'assistant', content: reply2, attachments: [],
+        reply_to_id: userMsgId,
+        created_at: new Date(),
+      });
+      assistantMsg = { id: arId2, role: 'assistant', content: reply2,
+                       attachments: [], author_id: null,
+                       reply_to_id: userMsgId };
     }
 
     res.json({ user_message_id: userMsgId, assistant_message: assistantMsg });
@@ -158,6 +240,20 @@ router.post('/messages/:id/share', requireAuth, async (req, res, next) => {
       created_at: new Date(),
     });
     res.json({ ok: true, chat_all_id: chatAll._id, new_message_id: newId });
+  } catch (e) { next(e); }
+});
+
+router.post('/messages/:id/pin', requireAuth, async (req, res, next) => {
+  try {
+    const messageId = parseInt(req.params.id, 10);
+    const msg = await cM().findOne({ _id: messageId });
+    if (!msg) return res.status(404).json({ detail: 'message_not_found' });
+    if (!await loadChatOr403(msg.chat_id, req.user, res)) return;
+    const next = !msg.pinned;
+    await cM().updateOne({ _id: messageId }, next
+      ? { $set: { pinned: true, pinned_at: new Date(), pinned_by: req.user._id } }
+      : { $unset: { pinned: '', pinned_at: '', pinned_by: '' } });
+    res.json({ ok: true, pinned: next });
   } catch (e) { next(e); }
 });
 

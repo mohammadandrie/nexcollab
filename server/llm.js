@@ -27,8 +27,22 @@ const GENERAL_PROMPT = (name, role) =>
   `team context. Be direct, concise, and reply in the user's language ` +
   `(default Indonesian if mixed).` + SCREENSHOT_NOTE;
 
+const CHAT_ALL_PROMPT = (name, role, projectName, projectDesc) =>
+  `You are Hermes, the AI assistant inside Nexcollab — an internal team ` +
+  `workspace for the enowX team. You are now speaking inside the shared ` +
+  `Chat All decision log of project "${projectName}". The team can read ` +
+  `everything you say here. ${name} (role: ${role}) just @-mentioned you. ` +
+  `Each prior user message is prefixed with [#id · author (role)] and may ` +
+  `include [↪ replying to msg #N] — use that to track the discussion thread. ` +
+  `Address whoever tagged you, ground your answer in the entire conversation ` +
+  `history visible to you, and keep replies concise, action-oriented, and in ` +
+  `the user's language (default Indonesian if mixed). Do not echo @hermes back.\n\n` +
+  `Project context: ${projectName} — ${projectDesc || '(no description)'}` +
+  SCREENSHOT_NOTE;
+
 export const buildSystemPrompt = SYSTEM_PROMPT;
 export const buildGeneralPrompt = GENERAL_PROMPT;
+export const buildChatAllPrompt = CHAT_ALL_PROMPT;
 
 export async function chatComplete(messages, { model = LLM_MODEL, timeoutMs = 60_000 } = {}) {
   const ctl = new AbortController();
