@@ -1,6 +1,6 @@
 export default function Sidebar({
   user, projects, activeProjectId, mode, members,
-  onPickProject, onPickGeneral, onCreateProject,
+  onPickProject, onPickGeneral, onCreateProject, onProjectSettings,
 }) {
   return (
     <aside className="hidden md:block w-64 flex-shrink-0">
@@ -32,19 +32,31 @@ export default function Sidebar({
             : projects.map((p) => {
                 const active = mode === 'project' && p.id === activeProjectId;
                 return (
-                  <button
-                    key={p.id}
-                    onClick={() => onPickProject(p.id)}
-                    className={`w-full text-left text-xs p-2 rounded-lg border ${
+                  <div key={p.id} className={`group flex items-center gap-1 rounded-lg border ${
                       active
-                        ? 'bg-indigo-500/10 border-indigo-500/40 text-white'
-                        : 'border-transparent text-neutral-300 hover:bg-neutral-800/50'
+                        ? 'bg-indigo-500/10 border-indigo-500/40'
+                        : 'border-transparent hover:bg-neutral-800/50'
                     }`}>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-neutral-500">▸</span>
-                      <span className="truncate">{p.name}</span>
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => onPickProject(p.id)}
+                      className={`flex-1 min-w-0 text-left text-xs p-2 ${
+                        active ? 'text-white' : 'text-neutral-300'
+                      }`}>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-neutral-500">▸</span>
+                        <span className="truncate">{p.name}</span>
+                        {p.github_repo && (
+                          <span className="text-[9px] text-neutral-500 ml-auto"
+                            title={`${p.github_repo} · ${p.github_branch || 'main'}`}>⎇</span>
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onProjectSettings(p); }}
+                      title="Setting project"
+                      className="opacity-0 group-hover:opacity-100 px-1.5 py-1 text-neutral-500
+                                 hover:text-neutral-200 text-xs">⚙</button>
+                  </div>
                 );
               })}
         </div>

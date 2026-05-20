@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 
-export default function TopBar({ user, projectName, onLogout }) {
+export default function TopBar({ user, projectName, onLogout, onProfileClick }) {
   async function logout() {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
     onLogout();
@@ -29,10 +29,14 @@ export default function TopBar({ user, projectName, onLogout }) {
               {user.role}
             </span>
           </div>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+          <button
+            onClick={onProfileClick}
+            title="Edit profil"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                       hover:ring-2 hover:ring-white/30 transition"
             style={{ background: user.color + '22', color: user.color, border: `1px solid ${user.color}55` }}>
             {user.avatar_letter}
-          </div>
+          </button>
           <button onClick={logout} className="text-[11px] text-neutral-500 hover:text-neutral-300">
             logout
           </button>

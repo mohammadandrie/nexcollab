@@ -51,6 +51,14 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(SCHEMA);
 
+// Idempotent ALTER migrations for older DBs (better-sqlite3 throws on dup column).
+function addColumnIfMissing(table, col, decl) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!cols.includes(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${decl}`);
+}
+addColumnIfMissing('projects', 'github_repo',   `TEXT NOT NULL DEFAULT ''`);
+addColumnIfMissing('projects', 'github_branch', `TEXT NOT NULL DEFAULT ''`);
+
 // Convenience wrappers — mirror the Python helpers.
 export const get = (sql, ...args) => db.prepare(sql).get(...args);
 export const all = (sql, ...args) => db.prepare(sql).all(...args);

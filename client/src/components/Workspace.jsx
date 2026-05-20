@@ -9,11 +9,15 @@ import ChatView from './ChatView.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import CreateProjectModal from './CreateProjectModal.jsx';
 import ShareModal from './ShareModal.jsx';
+import ProfileModal from './ProfileModal.jsx';
+import ProjectSettingsModal from './ProjectSettingsModal.jsx';
 
-export default function Workspace({ user, onLogout }) {
+export default function Workspace({ user, onLogout, onUserUpdated }) {
   const s = useChatState(user);
   const [showCreate, setShowCreate] = useState(false);
   const [shareMsg, setShareMsg] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [settingsProject, setSettingsProject] = useState(null);
 
   const projectName = s.mode === 'general'
     ? 'Chat bebas (di luar project)'
@@ -71,9 +75,30 @@ export default function Workspace({ user, onLogout }) {
     // Tab change triggers messages reload via effect chain in hook.
   }
 
+  async function onProfileSaved(updated) {
+    setShowProfile(false);
+    onUserUpdated?.(updated);
+  }
+
+  async function onProjectSaved(updated) {
+    setSettingsProject(null);
+    await s.refreshProjects();
+    if (s.project?.id === updated.id) await s.switchProject(updated.id);
+  }
+
+  async function onProjectDeleted(deletedId) {
+    setSettingsProject(null);
+    const remaining = await s.refreshProjects();
+    if (s.project?.id === deletedId) {
+      if (remaining.length) await s.switchProject(remaining[0].id);
+      else await s.enterGeneral();
+    }
+  }
+
   return (
     <>
-      <TopBar user={user} projectName={projectName} onLogout={onLogout} />
+      <TopBar user={user} projectName={projectName} onLogout={onLogout}
+              onProfileClick={() => setShowProfile(true)} />
 
       <div className="max-w-7xl mx-auto flex gap-4 p-3 sm:p-4">
         <Sidebar
@@ -85,6 +110,7 @@ export default function Workspace({ user, onLogout }) {
           onPickProject={s.switchProject}
           onPickGeneral={s.enterGeneral}
           onCreateProject={() => setShowCreate(true)}
+          onProjectSettings={(p) => setSettingsProject(p)}
         />
 
         <main className="flex-1 min-w-0">
@@ -160,6 +186,19 @@ export default function Workspace({ user, onLogout }) {
         message={shareMsg}
         onClose={() => setShareMsg(null)}
         onShared={onShared}
+      />
+      <ProfileModal
+        open={showProfile}
+        user={user}
+        onClose={() => setShowProfile(false)}
+        onSaved={onProfileSaved}
+      />
+      <ProjectSettingsModal
+        open={!!settingsProject}
+        project={settingsProject}
+        onClose={() => setSettingsProject(null)}
+        onSaved={onProjectSaved}
+        onDeleted={onProjectDeleted}
       />
     </>
   );

@@ -7,7 +7,7 @@ const router = Router();
 
 router.get('/projects', requireAuth, (req, res) => {
   const rows = all(
-    `SELECT p.id, p.name, p.description
+    `SELECT p.id, p.name, p.description, p.github_repo, p.github_branch
      FROM projects p
      JOIN project_members pm ON pm.project_id = p.id
      WHERE pm.user_id = ?
@@ -88,6 +88,44 @@ router.post('/projects', requireAuth, (req, res) => {
 
   const projectId = tx();
   res.json({ ok: true, project_id: projectId });
+});
+
+router.patch('/projects/:id', requireAuth, (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  const member = get(
+    'SELECT 1 FROM project_members WHERE project_id=? AND user_id=?',
+    projectId, req.user.id,
+  );
+  if (!member) return res.status(403).json({ detail: 'not_a_member' });
+
+  const fields = [];
+  const args = [];
+  for (const [k, col] of [
+    ['name', 'name'], ['description', 'description'],
+    ['github_repo', 'github_repo'], ['github_branch', 'github_branch'],
+  ]) {
+    if (k in (req.body || {})) {
+      const v = String(req.body[k] ?? '').trim();
+      if (k === 'name' && !v) return res.status(400).json({ detail: 'name_required' });
+      fields.push(`${col} = ?`); args.push(v);
+    }
+  }
+  if (!fields.length) return res.status(400).json({ detail: 'no_fields' });
+  args.push(projectId);
+  run(`UPDATE projects SET ${fields.join(', ')} WHERE id = ?`, ...args);
+  res.json({ ok: true, project: get('SELECT * FROM projects WHERE id = ?', projectId) });
+});
+
+router.delete('/projects/:id', requireAuth, (req, res) => {
+  const projectId = parseInt(req.params.id, 10);
+  const member = get(
+    'SELECT 1 FROM project_members WHERE project_id=? AND user_id=?',
+    projectId, req.user.id,
+  );
+  if (!member) return res.status(403).json({ detail: 'not_a_member' });
+  // Cascade handles chats, messages, project_members.
+  run('DELETE FROM projects WHERE id = ?', projectId);
+  res.json({ ok: true });
 });
 
 export default router;

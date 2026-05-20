@@ -1,6 +1,6 @@
 // Auth routes: login by username (internal team — no password).
 import { Router } from 'express';
-import { all, get } from '../db.js';
+import { all, get, run } from '../db.js';
 import { issue, requireAuth, COOKIE_NAME } from '../auth.js';
 
 const router = Router();
@@ -23,6 +23,25 @@ router.post('/logout', (_req, res) => {
 
 router.get('/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+router.patch('/me', requireAuth, (req, res) => {
+  const fields = [];
+  const args = [];
+  for (const k of ['name', 'color', 'avatar_letter']) {
+    if (k in (req.body || {})) {
+      const v = String(req.body[k] ?? '').trim();
+      if (k === 'name' && !v) return res.status(400).json({ detail: 'name_required' });
+      if (k === 'avatar_letter' && v.length > 2) {
+        return res.status(400).json({ detail: 'letter_too_long' });
+      }
+      fields.push(`${k} = ?`); args.push(v);
+    }
+  }
+  if (!fields.length) return res.status(400).json({ detail: 'no_fields' });
+  args.push(req.user.id);
+  run(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, ...args);
+  res.json({ ok: true, user: get('SELECT * FROM users WHERE id = ?', req.user.id) });
 });
 
 router.get('/users', (_req, res) => {

@@ -26,5 +26,5 @@ export default function App() {
     );
   }
   if (!user) return <Login onLogin={setUser} />;
-  return <Workspace user={user} onLogout={() => setUser(null)} />;
+  return <Workspace user={user} onLogout={() => setUser(null)} onUserUpdated={setUser} />;
 }
