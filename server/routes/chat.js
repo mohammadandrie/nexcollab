@@ -36,6 +36,7 @@ router.get('/chats/:id/messages', requireAuth, async (req, res, next) => {
       const a = m.author_id ? byId[m.author_id] : null;
       return {
         id: m._id, role: m.role, content: m.content,
+        attachments: Array.isArray(m.attachments) ? m.attachments : [],
         author_id: m.author_id, shared_from_chat_id: m.shared_from_chat_id ?? null,
         created_at: m.created_at,
         author_name: a?.name ?? null,
@@ -55,12 +56,24 @@ router.post('/chats/:id/messages', requireAuth, async (req, res, next) => {
     if (!chat) return;
 
     const text = String(req.body?.content || '').trim();
-    if (!text) return res.status(400).json({ detail: 'empty_message' });
+    const attachments = Array.isArray(req.body?.attachments)
+      ? req.body.attachments
+          .filter((a) => a && typeof a.url === 'string' && a.url.startsWith('/uploads/'))
+          .slice(0, 8)
+          .map((a) => ({
+            url: a.url, name: String(a.name || '').slice(0, 200),
+            mime: String(a.mime || ''), size: Number(a.size) || 0,
+          }))
+      : [];
+    if (!text && attachments.length === 0) {
+      return res.status(400).json({ detail: 'empty_message' });
+    }
 
     const userMsgId = await nextId('messages');
     await cM().insertOne({
       _id: userMsgId, chat_id: chatId, author_id: req.user._id,
-      role: 'user', content: text, created_at: new Date(),
+      role: 'user', content: text, attachments,
+      created_at: new Date(),
     });
 
     let assistantMsg = null;

@@ -1,4 +1,5 @@
 import { mdLite } from '../api.js';
+import Attachment from './Attachment.jsx';
 
 export default function MessageBubble({ msg, canShare, onShare }) {
   const isAssistant = msg.role === 'assistant';
@@ -28,6 +29,11 @@ export default function MessageBubble({ msg, canShare, onShare }) {
           className="markdown text-sm text-neutral-200"
           dangerouslySetInnerHTML={{ __html: mdLite(msg.content) }}
         />
+        {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+          <div className="mt-2 space-y-2">
+            {msg.attachments.map((a, i) => <Attachment key={i} a={a} />)}
+          </div>
+        )}
         {canShare && (
           <button
             onClick={() => onShare(msg)}

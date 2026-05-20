@@ -38,13 +38,14 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
   })();
   const [title, subtitle, hint] = titleSubtitle;
 
-  async function send(text) {
+  async function send(text, attachments = []) {
     // Optimistic user bubble + thinking placeholder where appropriate.
     const expectsLLM = s.mode === 'general'
       || (s.mode === 'project' && s.activeTab === 'private');
     s.setMessages((prev) => {
       const next = [...prev, {
         id: 'tmp-' + Date.now(), role: 'user', content: text,
+        attachments,
         author_id: user.id, author_name: user.name,
         author_color: user.color, author_letter: user.avatar_letter,
         author_role: user.role,
@@ -57,7 +58,8 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
     });
     try {
       await api(`/api/chats/${s.activeChatId}/messages`, {
-        method: 'POST', body: JSON.stringify({ content: text }),
+        method: 'POST',
+        body: JSON.stringify({ content: text, attachments }),
       });
     } catch (e) { console.error(e); }
     await s.reloadMessages();

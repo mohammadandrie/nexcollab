@@ -4,13 +4,14 @@ import cookieParser from 'cookie-parser';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { HOST, PORT, CLIENT_DIST } from './config.js';
+import { HOST, PORT, CLIENT_DIST, UPLOADS_DIR } from './config.js';
 import { connect } from './db.js';
 import { seed } from './seed.js';
 import authRouter from './routes/auth.js';
 import projectsRouter from './routes/projects.js';
 import chatRouter from './routes/chat.js';
 import githubRouter from './routes/github.js';
+import uploadRouter from './routes/upload.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -22,6 +23,8 @@ app.use('/api/auth', authRouter);
 app.use('/api', projectsRouter);
 app.use('/api', chatRouter);
 app.use('/api', githubRouter);
+app.use('/api', uploadRouter);
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '7d', immutable: true }));
 
 // React client (built by Vite into client/dist).
 if (fs.existsSync(CLIENT_DIST)) {

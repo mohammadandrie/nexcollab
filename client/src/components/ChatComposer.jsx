@@ -6,7 +6,11 @@ export default function ChatComposer({ hint, disabled, onSend, mentionUsers = []
   const [busy, setBusy] = useState(false);
   const [mention, setMention] = useState(null); // {start, query} | null
   const [mentionIdx, setMentionIdx] = useState(0);
+  const [attachments, setAttachments] = useState([]); // [{url, name, mime, size}]
+  const [uploading, setUploading] = useState(false);
+  const [upErr, setUpErr] = useState('');
   const taRef = useRef(null);
+  const fileRef = useRef(null);
 
   useEffect(() => {
     const ta = taRef.current;
@@ -39,13 +43,39 @@ export default function ChatComposer({ hint, disabled, onSend, mentionUsers = []
     setMention(null); setMentionIdx(0);
   }
 
+  async function uploadFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setUpErr(''); setUploading(true);
+    try {
+      for (const f of files) {
+        const fd = new FormData();
+        fd.append('file', f);
+        const r = await fetch('/api/upload', {
+          method: 'POST', body: fd, credentials: 'same-origin',
+        });
+        const data = await r.json();
+        if (!r.ok) { setUpErr(data.detail || 'upload_failed'); break; }
+        setAttachments((prev) => [...prev, data.file]);
+      }
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  function removeAttachment(idx) {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   async function submit(e) {
     e?.preventDefault?.();
     const v = text.trim();
-    if (!v || busy || disabled) return;
+    if ((!v && attachments.length === 0) || busy || disabled) return;
     setBusy(true);
-    setText('');
-    try { await onSend(v); }
+    const sentAttachments = attachments;
+    setText(''); setAttachments([]);
+    try { await onSend(v, sentAttachments); }
     finally { setBusy(false); taRef.current?.focus(); }
   }
 
@@ -73,6 +103,24 @@ export default function ChatComposer({ hint, disabled, onSend, mentionUsers = []
 
   return (
     <>
+      {(attachments.length > 0 || uploading || upErr) && (
+        <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+          {attachments.map((a, i) => (
+            <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-md
+                                    bg-[color:var(--bg-2)] border border-[color:var(--border)]
+                                    text-[11px]">
+              <span>{a.mime?.startsWith('image/') ? '🖼' :
+                     a.mime?.startsWith('video/') ? '🎬' :
+                     a.mime?.startsWith('audio/') ? '🎵' : '📎'}</span>
+              <span className="max-w-[140px] truncate">{a.name}</span>
+              <button onClick={() => removeAttachment(i)} type="button"
+                className="theme-muted hover:opacity-80">×</button>
+            </div>
+          ))}
+          {uploading && <span className="text-[11px] theme-muted">Uploading…</span>}
+          {upErr && <span className="text-[11px] text-red-400">Failed: {upErr}</span>}
+        </div>
+      )}
       <form onSubmit={submit} className="mt-3 flex gap-2 relative">
         {mention && filtered.length > 0 && (
           <MentionAutocomplete
@@ -90,9 +138,25 @@ export default function ChatComposer({ hint, disabled, onSend, mentionUsers = []
           placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
           className="flex-1 theme-input text-sm resize-none"
         />
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => uploadFiles(e.target.files)}
+        />
+        <button type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading || disabled}
+          title="Attach file"
+          className="px-3 rounded-xl theme-input border text-sm
+                     hover:opacity-80 disabled:opacity-50">
+          📎
+        </button>
         <button
           type="submit"
-          disabled={busy || disabled || !text.trim()}
+          disabled={busy || disabled || uploading
+                    || (!text.trim() && attachments.length === 0)}
           className="promote-btn text-white text-sm font-medium px-4 rounded-xl
                      disabled:opacity-50 disabled:cursor-not-allowed">
           {busy ? '…' : 'Send'}
