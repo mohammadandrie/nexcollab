@@ -72,6 +72,11 @@ export async function runAgentLoop(threadId) {
                   'deal_state.agreed_by': deal.agreedBy,
                   'deal_state.at': new Date() } },
       );
+      // Auto-rewrite description so human sees the deal outcome at a glance.
+      try {
+        const { rewriteDescriptionOnDeal } = await import('./agentDealSummary.js');
+        await rewriteDescriptionOnDeal(threadId);
+      } catch (e) { console.warn('[mak] deal summary skipped:', e.message); }
       return { reason: 'deal', iters: i, proposal: deal.proposalNum };
     }
     if (detectStuck(msgs, relevantIds)) {
