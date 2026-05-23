@@ -6,28 +6,27 @@ export default function MobileBar({
     <div className="md:hidden flex gap-1.5 mb-2 items-center text-xs">
       <button
         onClick={onPickGeneral}
-        className={`px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${
+        className={`px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 transition-colors ${
           mode === 'general'
-            ? 'bg-indigo-500/15 border-indigo-500/40 text-white'
-            : 'bg-neutral-900/60 border-neutral-800 text-neutral-300'
+            ? 'bg-[color:var(--accent)]/15 border-[color:var(--accent)]/40 text-[color:var(--fg)]'
+            : 'theme-card text-[color:var(--fg)]'
         }`}>
-        💬 <span>General</span>
+        💬 <span>Chat</span>
       </button>
       <select
         value={mode === 'project' ? activeProjectId ?? '' : ''}
         onChange={(e) => e.target.value && onPickProject(parseInt(e.target.value, 10))}
-        className="flex-1 px-2 py-1.5 rounded-lg bg-neutral-900/60 border border-neutral-800
-                   text-neutral-300">
-        <option value="">— pilih project —</option>
+        className="flex-1 theme-input text-xs py-1.5">
+        <option value="">— pick a project —</option>
         {projects.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
       </select>
       <button
         onClick={onCreateProject}
-        className="px-2.5 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30
-                   text-indigo-300">
-        + baru
+        className="px-2.5 py-1.5 rounded-lg bg-[color:var(--accent)]/15
+                   border border-[color:var(--accent)]/30 text-[color:var(--accent)]">
+        + new
       </button>
     </div>
   );

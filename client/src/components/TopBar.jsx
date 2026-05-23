@@ -43,7 +43,7 @@ export default function TopBar({ user, projectName, onLogout, onProfileClick }) 
             onClick={onProfileClick}
             title="Edit profile"
             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
-                       hover:ring-2 hover:ring-white/30 transition"
+                       hover:ring-2 hover:ring-[color:var(--accent)]/40 transition"
             style={{ background: user.color + '22', color: user.color, border: `1px solid ${user.color}55` }}>
             {user.avatar_letter}
           </button>
