@@ -74,6 +74,12 @@ export async function consumeCommentStream(threadId, body, setEvents, tmpUserKey
           streaming: true, thinking: true,
           role_at_post: ag.role || null,
         }]);
+      } else if (evt.event === 'delta') {
+        const gk = ghostId(data.agent_id);
+        setEvents((prev) => prev.map((e) => e._ghost_key === gk
+          ? { ...e, content: (e.content || '') + (data.delta || ''),
+              thinking: false, streaming: true }
+          : e));
       } else if (evt.event === 'completed') {
         const ev = data.event || {};
         const gk = ghostId(ev.agent_id);
