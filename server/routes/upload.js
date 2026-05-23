@@ -17,8 +17,15 @@ const ALLOWED = new Set([
   // video
   'video/mp4', 'video/webm', 'video/quicktime',
   // docs
-  'application/pdf', 'text/plain', 'text/markdown',
-  'application/zip', 'application/json',
+  'application/pdf', 'text/plain', 'text/markdown', 'text/csv',
+  'application/zip', 'application/x-zip-compressed', 'application/json',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/octet-stream',
 ]);
 
 const storage = multer.diskStorage({
@@ -32,7 +39,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 25 * 1024 * 1024 },  // 25 MB
+  limits: { fileSize: 2 * 1024 * 1024 },  // 2 MB
   fileFilter: (_req, file, cb) => {
     if (ALLOWED.has(file.mimetype)) cb(null, true);
     else cb(new Error('mime_not_allowed'));

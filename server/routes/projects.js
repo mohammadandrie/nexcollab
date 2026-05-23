@@ -130,4 +130,60 @@ router.delete('/projects/:id', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// GET /api/projects/:id/categories — list custom categories for the project.
+router.get('/projects/:id/categories', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    const proj = await cP().findOne({ _id: projectId });
+    if (!proj) return res.status(404).json({ detail: 'project_not_found' });
+    res.json({ categories: Array.isArray(proj.custom_categories) ? proj.custom_categories : [] });
+  } catch (e) { next(e); }
+});
+
+// POST /api/projects/:id/categories — add a custom category.
+// Body: { name }. Trim, dedupe (case-insensitive vs builtins), max 60 char, max 20 per project.
+router.post('/projects/:id/categories', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    const name = String(req.body?.name || '').trim().slice(0, 60);
+    if (!name) return res.status(400).json({ detail: 'name_required' });
+    const lower = name.toLowerCase();
+    if (['bug', 'request', 'other', 'all'].includes(lower)) {
+      return res.status(409).json({ detail: 'reserved_name' });
+    }
+    const proj = await cP().findOne({ _id: projectId });
+    if (!proj) return res.status(404).json({ detail: 'project_not_found' });
+    const cur = Array.isArray(proj.custom_categories) ? proj.custom_categories : [];
+    if (cur.some((c) => c.toLowerCase() === lower)) {
+      return res.json({ ok: true, categories: cur }); // already there, idempotent
+    }
+    if (cur.length >= 20) return res.status(409).json({ detail: 'limit_reached' });
+    const next = [...cur, name];
+    await cP().updateOne({ _id: projectId }, { $set: { custom_categories: next } });
+    res.json({ ok: true, categories: next });
+  } catch (e) { next(e); }
+});
+
+// DELETE /api/projects/:id/categories/:name — remove a custom category.
+// Threads still using the literal value keep it; the label simply disappears
+// from future dropdowns. Non-destructive.
+router.delete('/projects/:id/categories/:name', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    const name = decodeURIComponent(String(req.params.name || '')).trim();
+    const proj = await cP().findOne({ _id: projectId });
+    if (!proj) return res.status(404).json({ detail: 'project_not_found' });
+    const cur = Array.isArray(proj.custom_categories) ? proj.custom_categories : [];
+    const next = cur.filter((c) => c.toLowerCase() !== name.toLowerCase());
+    await cP().updateOne({ _id: projectId }, { $set: { custom_categories: next } });
+    res.json({ ok: true, categories: next });
+  } catch (e) { next(e); }
+});
+
 export default router;
