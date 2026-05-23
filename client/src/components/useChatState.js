@@ -10,6 +10,7 @@ export default function useChatState(user) {
   const [mode, setMode] = useState('project');         // 'project' | 'general'
   const [activeTab, setActiveTab] = useState('private');// 'private' | 'all'
   const [messages, setMessages] = useState([]);
+  const [activeChat, setActiveChat] = useState(null); // {id, kind, project_id, linked_thread_id}
   const [allUsers, setAllUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -110,11 +111,12 @@ export default function useChatState(user) {
     setMessagesLoading(true);
     let cancelled = false;
     const requestedChatId = activeChatId;
-    api(`/api/chats/${activeChatId}/messages`).then(({ messages }) => {
+    api(`/api/chats/${activeChatId}/messages`).then(({ messages, chat }) => {
       // Guard: if user switched tabs again before this fetch resolved,
       // don't pollute the new tab with the previous tab's data.
       if (cancelled || requestedChatId !== activeChatId) return;
       setMessages(messages);
+      setActiveChat(chat || null);
       setMessagesLoading(false);
       // Entering a chat clears its unread count for the current user.
       markRead(activeChatId);
@@ -313,7 +315,7 @@ export default function useChatState(user) {
   }, [loadUnread]);
 
   return {
-    projects, project, members, chats, mode, activeTab, messages,
+    projects, project, members, chats, mode, activeTab, messages, activeChat,
     activeChatId, user, allUsers, typingUsers, messagesLoading,
     threads, threadsLoading, customCategories, unread,
     setActiveTab, setMessages,

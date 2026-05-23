@@ -382,6 +382,21 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
                 />
               )
             ) : (
+              <>
+                {s.activeChat?.linked_thread_id != null && (
+                  <button
+                    onClick={() => setOpenThreadId(s.activeChat.linked_thread_id)}
+                    className="mb-2 text-left text-[11px] px-2.5 py-1.5 rounded-md
+                               bg-[color:var(--accent)]/10 border border-[color:var(--accent)]/30
+                               hover:bg-[color:var(--accent)]/20 flex items-center gap-2"
+                    title="Buka thread yang sedang dibahas">
+                    <span>🔗</span>
+                    <span className="font-medium text-[color:var(--accent)]">
+                      Linked thread #{s.activeChat.linked_thread_id}
+                    </span>
+                    <span className="theme-muted">· klik untuk buka</span>
+                  </button>
+                )}
               <ChatView
                 messages={s.messages}
                 mode={s.mode}
@@ -399,6 +414,7 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
                 onRetry={(m) => retryChatStream(m, s.setMessages, user)}
                 onPromote={(m) => setPromoteMsg(m)}
               />
+              </>
             )}
           </div>
 
