@@ -195,8 +195,9 @@ export default function useChatState(user) {
 
   const reloadMessages = useCallback(async () => {
     if (!activeChatId) return;
-    const { messages } = await api(`/api/chats/${activeChatId}/messages`);
+    const { messages, chat } = await api(`/api/chats/${activeChatId}/messages`);
     setMessages(messages);
+    setActiveChat(chat || null);
   }, [activeChatId]);
 
   // Threads: load list for current project (Chat All view consumes this).

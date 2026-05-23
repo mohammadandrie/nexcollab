@@ -51,6 +51,7 @@ import TopBar from './TopBar.jsx';
 import Sidebar from './Sidebar.jsx';
 import MobileBar from './MobileBar.jsx';
 import ChatView from './ChatView.jsx';
+import LinkedThreadBar from './LinkedThreadBar.jsx';
 import GithubPanel from './GithubPanel.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import CreateProjectModal from './CreateProjectModal.jsx';
@@ -383,19 +384,17 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
               )
             ) : (
               <>
-                {s.activeChat?.linked_thread_id != null && (
-                  <button
-                    onClick={() => setOpenThreadId(s.activeChat.linked_thread_id)}
-                    className="mb-2 text-left text-[11px] px-2.5 py-1.5 rounded-md
-                               bg-[color:var(--accent)]/10 border border-[color:var(--accent)]/30
-                               hover:bg-[color:var(--accent)]/20 flex items-center gap-2"
-                    title="Buka thread yang sedang dibahas">
-                    <span>🔗</span>
-                    <span className="font-medium text-[color:var(--accent)]">
-                      Linked thread #{s.activeChat.linked_thread_id}
-                    </span>
-                    <span className="theme-muted">· klik untuk buka</span>
-                  </button>
+                {s.activeTab === 'private' && (
+                  <LinkedThreadBar
+                    chatId={s.activeChat?.id}
+                    linkedThreadId={s.activeChat?.linked_thread_id ?? null}
+                    assignedThreads={(s.threads || []).filter(
+                      (t) => t.assignee?.id === (user?.id ?? user?._id)
+                             && t.status !== 'done'
+                    )}
+                    onOpenThread={(id) => setOpenThreadId(id)}
+                    onChanged={() => s.reloadMessages?.()}
+                  />
                 )}
               <ChatView
                 messages={s.messages}
