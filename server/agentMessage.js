@@ -2,7 +2,7 @@
 // Build LLM messages (persona + transcript), call gateway, parse stance,
 // persist as thread event with mak metadata. Returns the event.
 import { cT, cA, cU, nextId } from './db.js';
-import { chatComplete } from './llm.js';
+import { chatComplete, chatCompleteStream } from './llm.js';
 import { parseStance, stripStanceLine, isStanceAllowed } from './stanceParser.js';
 import { parseTargetHint, resolveTargetAgent } from './agentResolver.js';
 
@@ -66,10 +66,27 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
     ? `Discussion so far:\n${transcript}\n\nPost your reply now. End with the stance tag on its own final line.`
     : 'Open the discussion. Propose the first concrete direction. End with 💡 PROPOSE #1 <summary> on its own final line.';
 
-  const reply = await chatComplete([
-    { role: 'system', content: sys },
-    { role: 'user', content: userMsg },
-  ], { maxTokens: 600 });
+  let reply = '';
+  if (onProgress) {
+    // Token-level streaming so SSE consumer renders text as it arrives,
+    // not just thinking → final dump. Aggregate locally for stance parse.
+    for await (const chunk of chatCompleteStream([
+      { role: 'system', content: sys },
+      { role: 'user', content: userMsg },
+    ], { maxTokens: 600 })) {
+      if (chunk.type === 'delta') {
+        reply += chunk.content;
+        try { onProgress({ kind: 'delta', agent, delta: chunk.content }); } catch {}
+      } else if (chunk.type === 'final' && chunk.content) {
+        reply = chunk.content;
+      }
+    }
+  } else {
+    reply = await chatComplete([
+      { role: 'system', content: sys },
+      { role: 'user', content: userMsg },
+    ], { maxTokens: 600 });
+  }
 
   let stance = parseStance(reply);
   if (!isStanceAllowed(stance, isStageAgent)) {
