@@ -1,5 +1,6 @@
 // Idempotent seed: 5 team members + sample project + per-user general chats.
-import { connect, cU, cP, cPM, cC, nextId } from './db.js';
+import { connect, cU, cP, cPM, cC, cA, nextId } from './db.js';
+import { PERSONAS, SEED_AGENTS } from './agentPrompts.js';
 
 const TEAM = [
   { username: 'tyo',    name: 'Tyo',    role: 'PM',  color: '#a78bfa', avatar_letter: 'T' },
@@ -61,6 +62,31 @@ export async function seed() {
         project_id: null, kind: 'general', owner_id: u._id,
       });
     }
+  }
+
+  // Seed 5 default agents (one per team member). Idempotent: only insert
+  // if no agent row exists for that owner_user_id yet. Re-seeding does
+  // NOT overwrite user-edited persona/photo/color — that's by design.
+  for (const entry of SEED_AGENTS) {
+    const owner = await cU().findOne({ username: entry.username });
+    if (!owner) continue;
+    if (await cA().findOne({ owner_user_id: owner._id })) continue;
+    const persona = PERSONAS[entry.persona];
+    if (!persona) continue;
+    await cA().insertOne({
+      _id: await nextId('agents'),
+      owner_user_id: owner._id,
+      persona_key: entry.persona,
+      role: persona.role,
+      name: persona.name,
+      photo_url: null,
+      color: persona.color,
+      system_prompt: persona.system_prompt,
+      allowed_stages: persona.allowed_stages,
+      model_override: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
   }
 }
 
