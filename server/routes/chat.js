@@ -601,4 +601,26 @@ router.post('/chats/:id/stream', requireAuth, async (req, res, next) => {
   }
 });
 
+// POST /api/chats/:id/link — set or clear the linked thread for a private
+// chat. When set, future agent replies receive thread context bundle in
+// the system prompt. Body: { thread_id: int|null }.
+router.post('/chats/:id/link', requireAuth, async (req, res, next) => {
+  try {
+    const chatId = parseInt(req.params.id, 10);
+    if (!await loadChatOr403(chatId, req.user, res)) return;
+    const raw = req.body?.thread_id;
+    let threadId = null;
+    if (raw != null && raw !== '') {
+      const parsed = parseInt(raw, 10);
+      if (!Number.isFinite(parsed)) return res.status(400).json({ detail: 'bad_thread_id' });
+      threadId = parsed;
+    }
+    await cC().updateOne(
+      { _id: chatId },
+      { $set: { linked_thread_id: threadId, updated_at: new Date() } },
+    );
+    res.json({ ok: true, linked_thread_id: threadId });
+  } catch (e) { next(e); }
+});
+
 export default router;
