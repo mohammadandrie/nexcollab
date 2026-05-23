@@ -76,6 +76,20 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
   const [showAgentSettings, setShowAgentSettings] = useState(false);
   const [showMyCards, setShowMyCards] = useState(false);
   const [myCardsCount, setMyCardsCount] = useState(0);
+
+  // Poll /api/my-cards count every 30s so the 📥 badge stays fresh.
+  // Light query (cap by role match + project scope) so cost is low.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      api('/api/my-cards').then((r) => {
+        if (!cancelled) setMyCardsCount(r.count || 0);
+      }).catch(() => {});
+    };
+    tick();
+    const t = setInterval(tick, 30_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
   const [settingsProject, setSettingsProject] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null); // {id, role, content, author_name, author_color}
   const [promoteMsg, setPromoteMsg] = useState(null);  // {id, content} → opens PromoteModal
