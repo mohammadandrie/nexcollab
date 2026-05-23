@@ -709,6 +709,11 @@ router.post('/threads/:id/approve', requireAuth, async (req, res, next) => {
       ok: true, advanced: true, stage: next, prev_stage: stage,
       version: newVersion, approvals_have: haveCount, approvals_need: needCount,
     });
+    // Auto-greet from the new stage's lead agent. Fire-and-forget so
+    // we don't block the approve response on an LLM call.
+    import('../agentHandoffGreet.js').then(({ postHandoffGreet }) =>
+      postHandoffGreet(id, stage, next),
+    ).catch((e) => console.warn('[mak] handoff greet skipped:', e.message));
   } catch (e) { next(e); }
 });
 
