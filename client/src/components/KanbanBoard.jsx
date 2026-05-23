@@ -26,7 +26,7 @@ export default function KanbanBoard({ projectId, currentUser, onOpenThread }) {
     if (!projectId) return;
     try {
       setLoading(true);
-      const r = await api(`/projects/${projectId}/board`);
+      const r = await api(`/api/projects/${projectId}/board`);
       setBoard(r);
     } catch (e) {
       window.dispatchEvent(new CustomEvent('nexcollab:toast', {
