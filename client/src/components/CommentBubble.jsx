@@ -165,6 +165,15 @@ export default function CommentBubble({
               </button>
             </div>
           </div>
+        ) : ev.thinking ? (
+          <div className="text-[12px] italic theme-muted flex items-center gap-1.5">
+            <span className="inline-flex gap-0.5">
+              <span className="w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1 h-1 rounded-full bg-current animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
+            <span>Agent {ev.agent?.name || 'AI'} is thinking…</span>
+          </div>
         ) : ev.content && (
           <div className="markdown text-[13px] text-neutral-200"
                onClick={(e) => {
