@@ -234,6 +234,12 @@ router.get('/threads/:id', requireAuth, async (req, res, next) => {
         })),
         pinned_event_ids: Array.isArray(t.pinned_event_ids) ? t.pinned_event_ids : [],
         version: t.version || 0,
+        // Multi-agent kanban (mak) fields. Defaults handle pre-migration rows.
+        stage: t.stage || 'backlog',
+        stage_owners: t.stage_owners || {},
+        approvals: Array.isArray(t.approvals) ? t.approvals : [],
+        description_locks: t.description_locks || {},
+        deal_state: t.deal_state || { status: 'idle' },
         created_at: t.created_at, updated_at: t.updated_at, closed_at: t.closed_at,
       },
     });
