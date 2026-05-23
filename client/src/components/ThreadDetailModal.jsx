@@ -6,6 +6,7 @@ import Avatar from './Avatar.jsx';
 import CategoryPicker from './CategoryPicker.jsx';
 import CommentBubble from './CommentBubble.jsx';
 import StageBar from './StageBar.jsx';
+import ThreadActionsMenu from './ThreadActionsMenu.jsx';
 import { consumeCommentStream } from './commentStream.js';
 import ChatComposer from './ChatComposer.jsx';
 import Attachment from './Attachment.jsx';
@@ -388,6 +389,15 @@ export default function ThreadDetailModal({
                                  hover:bg-[color:var(--accent)]/25">
                 💬 Talk to my agent
               </button>
+            )}
+            {thread.originator?.id === currentUserId && (
+              <ThreadActionsMenu
+                threadId={threadId} title={thread.title}
+                canEdit canDelete
+                onTitleSaved={() => refetch()}
+                onDeleted={() => onClose?.()}
+                size="lg"
+              />
             )}
             <button onClick={onClose}
                     className="text-xs theme-muted px-2 py-1">✕</button>
