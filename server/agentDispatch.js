@@ -64,5 +64,8 @@ export async function dispatchAgentReply(threadId, triggerEvent, triggerActor, d
   // Chain: did the new agent event itself mention another agent or
   // reply to one? If so, recurse. Pass NULL as triggerActor so the
   // next agent treats this as agent-to-agent (no human speaker).
-  return dispatchAgentReply(threadId, newEv, null, depth + 1);
+  // Return the chain's last event if it fired, else this turn's event
+  // (so caller always gets the most recent agent reply for UI).
+  const chained = await dispatchAgentReply(threadId, newEv, null, depth + 1);
+  return chained || newEv;
 }
