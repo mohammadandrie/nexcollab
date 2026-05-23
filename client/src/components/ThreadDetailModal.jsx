@@ -24,7 +24,7 @@ function fmtFullDateTime(d) {
 
 export default function ThreadDetailModal({
   threadId, currentUserId, currentUser, members = [], customCategories = [],
-  onClose, onChanged,
+  onClose, onChanged, onTalkToAgent,
 }) {
   const [thread, setThread] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -336,8 +336,19 @@ export default function ThreadDetailModal({
           ← Back to threads
         </button>
         {thread && (
-          <button onClick={onClose}
-                  className="text-xs theme-muted px-2 py-1">✕</button>
+          <div className="flex items-center gap-2">
+            {onTalkToAgent && (
+              <button onClick={() => onTalkToAgent(thread)}
+                      title="Diskusi 1:1 dengan agent kamu tentang thread ini"
+                      className="text-[11px] px-2 py-1 rounded
+                                 bg-[color:var(--accent)]/15 text-[color:var(--accent)]
+                                 hover:bg-[color:var(--accent)]/25">
+                💬 Talk to my agent
+              </button>
+            )}
+            <button onClick={onClose}
+                    className="text-xs theme-muted px-2 py-1">✕</button>
+          </div>
         )}
       </div>
         {loading && !thread && (
