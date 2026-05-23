@@ -329,7 +329,10 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
             <InboxStrip
               threads={s.threads}
               currentUserId={user?.id ?? user?._id ?? null}
-              onOpen={(id) => setOpenThreadId(id)}
+              onOpen={(id) => {
+                s.setActiveTab?.('all');
+                setOpenThreadId(id);
+              }}
               onRelease={async (id) => {
                 try {
                   await api(`/api/threads/${id}/release`, {
