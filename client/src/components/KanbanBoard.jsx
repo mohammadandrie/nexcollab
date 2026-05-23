@@ -51,7 +51,7 @@ export default function KanbanBoard({ projectId, currentUser, onOpenThread }) {
     const card = Object.values(board?.columns || {}).flat().find((c) => c.id === dragId);
     if (!card || card.stage === stage) { setDragId(null); setDropOver(null); return; }
     try {
-      await api(`/threads/${dragId}/stage`, {
+      await api(`/api/threads/${dragId}/stage`, {
         method: 'POST',
         body: JSON.stringify({ stage, if_version: card.version ?? 0 }),
       });
