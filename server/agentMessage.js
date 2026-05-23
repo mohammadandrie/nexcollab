@@ -4,6 +4,7 @@
 import { cT, cA, cU, nextId } from './db.js';
 import { chatComplete } from './llm.js';
 import { parseStance, stripStanceLine, isStanceAllowed } from './stanceParser.js';
+import { parseTargetHint, resolveTargetAgent } from './agentResolver.js';
 
 // Build a transcript line from a thread event for LLM context.
 function fmtEvent(ev, userMap, agentMap) {
@@ -43,7 +44,17 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
     ? `\nThe user currently speaking to you is ${triggerUser.name} (${triggerUser.role}). Address them by name when greeting; do NOT address other people from the transcript as if they just spoke.`
     : '';
 
-  const sys = `${agent.system_prompt}\n\nThread: "${thread.title}"\nDescription: ${thread.description || '(none)'}\nCurrent stage: ${thread.stage || 'backlog'}\n${stageNote}${speakerLine}`;
+  // Roster of all available agents so LLM knows valid @mention targets.
+  const allAgents = await cA().find({}, { projection: { name: 1, role: 1, owner_user_id: 1 } }).toArray();
+  const ownersById = Object.fromEntries(
+    (await cU().find({}, { projection: { _id: 1, name: 1 } }).toArray()).map((u) => [u._id, u.name]),
+  );
+  const rosterLine = '\nAgent roster you may @mention:\n'
+    + allAgents.filter((a) => a._id !== agent._id)
+        .map((a) => `  - @${a.name} (role=${a.role.toUpperCase()}, owner=${ownersById[a.owner_user_id] || '?'})`)
+        .join('\n');
+
+  const sys = `${agent.system_prompt}\n\nThread: "${thread.title}"\nDescription: ${thread.description || '(none)'}\nCurrent stage: ${thread.stage || 'backlog'}\n${stageNote}${speakerLine}${rosterLine}`;
 
   const transcript = events.map((e) => fmtEvent(e, userMap, agentMap)).join('\n');
   const userMsg = transcript
@@ -61,6 +72,32 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
     stance = { ...stance, tag: 'note', proposalRef: null };
   }
 
+  // ROUTE_TO rewriter: if agent emitted "ROUTE_TO=<role> target=<owner>",
+  // resolve the actual agent and replace placeholder with @AgentName.
+  // Backend-controlled so LLM can't fabricate a target name.
+  let bodyContent = stripStanceLine(reply) || reply;
+  let routedToAgentId = null;
+  const routeMatch = bodyContent.match(/ROUTE_TO=(\w+)(?:\s+target=([A-Z][a-zA-Z]+))?/);
+  if (routeMatch) {
+    const role = routeMatch[1];
+    const ownerName = routeMatch[2] || null;
+    const resolved = await resolveTargetAgent({
+      role, ownerName, projectId: thread.project_id, excludeAgentId: agent._id,
+    });
+    if (resolved.agent) {
+      routedToAgentId = resolved.agent._id;
+      bodyContent = bodyContent.replace(routeMatch[0], `@${resolved.agent.name}`);
+    } else {
+      bodyContent = bodyContent.replace(routeMatch[0], `(target agent tidak ditemukan: ${resolved.error || 'unknown'})`);
+    }
+  }
+
+  // Extract @AgentName tokens from final body for `mentions` metadata.
+  const mentionTokens = [...bodyContent.matchAll(/@(\w+)/g)].map((m) => m[1].toLowerCase());
+  const mentionedAgentIds = allAgents
+    .filter((a) => mentionTokens.includes(String(a.name || '').toLowerCase()))
+    .map((a) => a._id);
+
   const event_id = await nextId('thread_events');
   const ts = new Date();
   const ev = {
@@ -70,7 +107,9 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
     stance_tag: stance.tag,
     proposal_ref: stance.proposalRef ?? null,
     ts,
-    content: stripStanceLine(reply) || reply,
+    content: bodyContent,
+    mentions: mentionedAgentIds,
+    routed_to_agent_id: routedToAgentId,
     attachments: [], reply_to_event_id: replyToEventId,
   };
   await cT().updateOne(
