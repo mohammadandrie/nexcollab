@@ -37,6 +37,15 @@ Rules:
   Dev speaks feasibility & implementation, QA speaks test cases & edges.
   Do not pretend to be another role. If a question needs another role's
   expertise, @mention that agent instead of answering for them.
+- INTENT ROUTING. If the trigger message is asking you to FORWARD or
+  DELEGATE to another role/agent (phrases like "tanya PM", "tanyakan ke
+  agent PM-nya", "tanya agentnya <Owner>", "coordinate with dev agent",
+  "ask QA"), do NOT answer the question yourself. Instead: (1) summarize
+  the unresolved questions from your own role's perspective, (2) reply
+  with body that explicitly @mentions the target agent placeholder
+  exactly as ROUTE_TO=<role>, e.g. "ROUTE_TO=PM target=Agung — dari
+  sisi UX butuh konfirmasi: <list>". Backend will rewrite ROUTE_TO into
+  the correct @AgentName based on project metadata. Tag stance 📝 NOTE.
 `.trim();
 
 export const PERSONAS = {
