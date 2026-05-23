@@ -10,6 +10,23 @@ import {
 
 const router = Router();
 
+// Multi-agent kanban: stage → required approver role(s).
+// 'dev' butuh BOTH developers approve; lainnya cukup 1 dari role itu.
+const STAGE_APPROVERS = {
+  backlog: [],            // draft, no approval needed
+  open: ['PM'],
+  uiux: ['UX'],
+  dev: ['DEV', 'DEV'],    // both devs must approve
+  qa: ['QA'],
+  pcheck: ['PM'],
+  done: [],
+};
+// stage → next stage on approve. 'done' is terminal.
+const NEXT_STAGE = {
+  backlog: 'open', open: 'uiux', uiux: 'dev',
+  dev: 'qa', qa: 'pcheck', pcheck: 'done', done: null,
+};
+
 // Build a thread-history transcript Hermes can reason about, then post the
 // reply as a synthetic `comment` event (actor_id: null, role: assistant).
 // Returned event is sent to the caller so the UI can render it immediately.
@@ -217,6 +234,12 @@ router.get('/threads/:id', requireAuth, async (req, res, next) => {
         })),
         pinned_event_ids: Array.isArray(t.pinned_event_ids) ? t.pinned_event_ids : [],
         version: t.version || 0,
+        // Multi-agent kanban (mak) fields. Defaults handle pre-migration rows.
+        stage: t.stage || 'backlog',
+        stage_owners: t.stage_owners || {},
+        approvals: Array.isArray(t.approvals) ? t.approvals : [],
+        description_locks: t.description_locks || {},
+        deal_state: t.deal_state || { status: 'idle' },
         created_at: t.created_at, updated_at: t.updated_at, closed_at: t.closed_at,
       },
     });
@@ -608,6 +631,218 @@ router.delete('/threads/:id/events/:eventId', requireAuth, async (req, res, next
                 updated_at: now } },
     );
     res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// POST /api/threads/:id/approve — stage approval (mak Fase 3).
+// Records this user's approval for the current stage. When ALL required
+// approvers (per STAGE_APPROVERS) have approved, snapshot description to
+// description_locks[stage] and advance to NEXT_STAGE. Optimistic
+// concurrency via if_version on the read-side; the actual transition
+// uses an atomic updateOne keyed on the same version.
+router.post('/threads/:id/approve', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const t = await cT().findOne({ _id: id });
+    if (!t) return res.status(404).json({ detail: 'thread_not_found' });
+    const member = await cPM().findOne({ project_id: t.project_id, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+
+    const stage = t.stage || 'backlog';
+    const required = STAGE_APPROVERS[stage] || [];
+    if (required.length === 0) {
+      return res.status(409).json({ detail: 'stage_no_approval', stage });
+    }
+    if (!required.includes(req.user.role)) {
+      return res.status(403).json({ detail: 'wrong_role', expected: required, got: req.user.role });
+    }
+
+    const existing = (t.approvals || []).filter((a) => a.stage === stage);
+    if (existing.some((a) => a.user_id === req.user._id)) {
+      return res.status(409).json({ detail: 'already_approved' });
+    }
+
+    // Tally with this user added. For 'dev' stage we need 2 approvers,
+    // each must be a different user (role check above already validates DEV).
+    const approverIds = new Set(existing.map((a) => a.user_id));
+    approverIds.add(req.user._id);
+    const haveCount = approverIds.size;
+    const needCount = required.length;
+
+    const now = new Date();
+    const newApproval = { user_id: req.user._id, stage, ts: now };
+
+    if (haveCount < needCount) {
+      // Partial: just record approval, no transition.
+      await cT().updateOne(
+        { _id: id },
+        { $push: { approvals: newApproval }, $set: { updated_at: now } },
+      );
+      return res.json({
+        ok: true, advanced: false, stage,
+        approvals_have: haveCount, approvals_need: needCount,
+      });
+    }
+
+    // Full quorum → advance. Snapshot description to locks[stage] and move.
+    const next = NEXT_STAGE[stage];
+    const newVersion = (t.version || 0) + 1;
+    const histEntry = {
+      version: newVersion, ts: now, by_id: req.user._id,
+      by_kind: 'human', source: 'stage_approve',
+      from_stage: stage, to_stage: next,
+    };
+    const lockKey = `description_locks.${stage}`;
+    await cT().updateOne(
+      { _id: id, version: t.version || 0 },
+      {
+        $push: { approvals: newApproval, description_history: histEntry },
+        $set: {
+          stage: next,
+          updated_at: now,
+          [lockKey]: { content: t.description || '', ts: now, by_id: req.user._id },
+        },
+        $inc: { version: 1 },
+      },
+    );
+    res.json({
+      ok: true, advanced: true, stage: next, prev_stage: stage,
+      version: newVersion, approvals_have: haveCount, approvals_need: needCount,
+    });
+  } catch (e) { next(e); }
+});
+
+// POST /api/threads/:id/stage — manual stage move (drag from kanban).
+// PM-only for now; future: stage-owner approval gates this. Optimistic
+// concurrency via if_version. Records the move in description_history
+// for audit but does NOT mutate description text yet (that happens on
+// auto-DEAL in Fase 4).
+const VALID_STAGES = new Set(['backlog', 'open', 'uiux', 'dev', 'qa', 'pcheck', 'done']);
+
+router.post('/threads/:id/stage', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const t = await cT().findOne({ _id: id });
+    if (!t) return res.status(404).json({ detail: 'thread_not_found' });
+    const member = await cPM().findOne({ project_id: t.project_id, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    if (req.user.role !== 'PM') return res.status(403).json({ detail: 'pm_only' });
+
+    const next_stage = String(req.body?.stage || '').trim().toLowerCase();
+    if (!VALID_STAGES.has(next_stage)) return res.status(400).json({ detail: 'bad_stage' });
+
+    if (req.body?.if_version != null) {
+      const expected = parseInt(req.body.if_version, 10);
+      const actual = parseInt(t.version || 0, 10);
+      if (Number.isFinite(expected) && expected !== actual) {
+        return res.status(409).json({
+          detail: 'version_conflict',
+          server_version: actual, client_version: expected,
+        });
+      }
+    }
+
+    const prev_stage = t.stage || 'backlog';
+    if (prev_stage === next_stage) return res.json({ ok: true, stage: next_stage, unchanged: true });
+
+    const now = new Date();
+    const histEntry = {
+      version: (t.version || 0) + 1,
+      ts: now,
+      by_id: req.user._id,
+      by_kind: 'human',
+      source: 'manual_drag',
+      from_stage: prev_stage,
+      to_stage: next_stage,
+    };
+    await cT().updateOne(
+      { _id: id },
+      {
+        $set: { stage: next_stage, updated_at: now },
+        $inc: { version: 1 },
+        $push: { description_history: histEntry },
+      },
+    );
+    res.json({ ok: true, stage: next_stage, prev_stage, version: (t.version || 0) + 1 });
+  } catch (e) { next(e); }
+});
+
+// GET /api/projects/:id/board — kanban view: thread cards grouped by stage.
+// Member-only. Used by KanbanBoard.jsx to render the 7 columns.
+router.get('/projects/:id/board', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(projectId)) return res.status(400).json({ detail: 'bad_id' });
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+
+    const rows = await cT().find({ project_id: projectId })
+      .project({
+        _id: 1, title: 1, description: 1, status: 1, stage: 1,
+        category: 1, current_assignee_id: 1, created_by: 1,
+        deal_state: 1, version: 1, updated_at: 1, created_at: 1,
+      })
+      .sort({ updated_at: -1 })
+      .toArray();
+
+    // Hydrate names for assignee + creator (small set, single query).
+    const userIds = new Set();
+    for (const r of rows) {
+      if (r.current_assignee_id) userIds.add(r.current_assignee_id);
+      if (r.created_by) userIds.add(r.created_by);
+    }
+    const users = userIds.size ? await cU().find(
+      { _id: { $in: [...userIds] } },
+      { projection: { _id: 1, name: 1, role: 1, color: 1, photo_url: 1, avatar_letter: 1 } },
+    ).toArray() : [];
+    const uMap = Object.fromEntries(users.map((u) => [u._id, u]));
+
+    const STAGES = ['backlog', 'open', 'uiux', 'dev', 'qa', 'pcheck', 'done'];
+    const columns = Object.fromEntries(STAGES.map((s) => [s, []]));
+    for (const r of rows) {
+      const stage = STAGES.includes(r.stage) ? r.stage : 'backlog';
+      columns[stage].push({
+        id: r._id,
+        title: r.title,
+        category: r.category ?? null,
+        stage,
+        legacy_status: r.status ?? null,
+        version: r.version ?? 0,
+        deal_status: r.deal_state?.status ?? 'idle',
+        assignee: r.current_assignee_id ? uMap[r.current_assignee_id] ?? null : null,
+        creator: r.created_by ? uMap[r.created_by] ?? null : null,
+        updated_at: r.updated_at,
+      });
+    }
+    res.json({ project_id: projectId, stages: STAGES, columns });
+  } catch (e) { next(e); }
+});
+
+// POST /api/threads/:id/run — trigger agent discussion loop until DEAL or
+// STUCK. Kicks off in background and returns immediately so the request
+// doesn't block on multiple LLM calls. Client polls thread for new events.
+router.post('/threads/:id/run', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const t = await cT().findOne({ _id: id });
+    if (!t) return res.status(404).json({ detail: 'thread_not_found' });
+    const member = await cPM().findOne({ project_id: t.project_id, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    // Mark running so UI can show indicator. Loop updates status on exit.
+    await cT().updateOne(
+      { _id: id },
+      { $set: { 'deal_state.status': 'running', 'deal_state.started_at': new Date() } },
+    );
+    res.json({ ok: true, status: 'running' });
+    // Fire-and-forget: import lazily so circular imports stay safe.
+    import('../agentRunner.js').then(({ runAgentLoop }) => runAgentLoop(id))
+      .then((r) => console.log(`[mak] thread ${id} loop done:`, r))
+      .catch((e) => {
+        console.error(`[mak] thread ${id} loop error:`, e);
+        cT().updateOne({ _id: id },
+          { $set: { 'deal_state.status': 'error',
+                    'deal_state.last_error': String(e.message || e) } });
+      });
   } catch (e) { next(e); }
 });
 

@@ -15,6 +15,7 @@ import uploadRouter from './routes/upload.js';
 import typingRouter from './routes/typing.js';
 import threadsRouter from './routes/threads.js';
 import chatViewsRouter from './routes/chat_views.js';
+import agentsRouter from './routes/agents.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -30,6 +31,7 @@ app.use('/api', uploadRouter);
 app.use('/api', typingRouter);
 app.use('/api', threadsRouter);
 app.use('/api', chatViewsRouter);
+app.use('/api', agentsRouter);
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '7d', immutable: true }));
 
 // React client (built by Vite into client/dist).

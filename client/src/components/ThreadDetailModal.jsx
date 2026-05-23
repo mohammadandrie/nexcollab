@@ -5,6 +5,7 @@ import { api, mdLite } from '../api.js';
 import Avatar from './Avatar.jsx';
 import CategoryPicker from './CategoryPicker.jsx';
 import CommentBubble from './CommentBubble.jsx';
+import ApprovalFooter from './ApprovalFooter.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import Attachment from './Attachment.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
@@ -22,7 +23,7 @@ function fmtFullDateTime(d) {
 }
 
 export default function ThreadDetailModal({
-  threadId, currentUserId, members = [], customCategories = [],
+  threadId, currentUserId, currentUser, members = [], customCategories = [],
   onClose, onChanged,
 }) {
   const [thread, setThread] = useState(null);
@@ -679,6 +680,11 @@ export default function ThreadDetailModal({
                 {err && <div className="text-[11px] text-red-400 mt-1">{err}</div>}
               </div>
             </section>
+            <ApprovalFooter
+              thread={thread}
+              currentUser={currentUser}
+              onApproved={() => { refetch(); onChanged?.(); }}
+            />
             </div>
           </>
         )}

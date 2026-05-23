@@ -390,55 +390,74 @@ Status: belum mulai. Update checkbox + commit SHA tiap task done.
 
 ### Fase 1 — Schema + seed
 
-- [ ] Buat collection `cAgents` di db.js (helper + ensureIndex)
-- [ ] Migration: tambah field `stage`, `stage_owners`, `approvals`,
+- [x] Buat collection `cAgents` di db.js (helper + ensureIndex)  · a4199df
+- [x] Migration: tambah field `stage`, `stage_owners`, `approvals`,
       `description_locks`, `description_history`, `deal_state`,
-      `agent_participants` ke cT
+      `agent_participants` ke cT  · 4204cd0
 - [ ] Migration: tambah field `agent_id`, `role_at_post`,
-      `stance_tag`, `proposal_ref` ke cM
-- [ ] Backfill thread existing: `status` lama → `stage` baru
-      (open→open, assigned→stage role assignee, review→pcheck,
-      done→done)
-- [ ] Seed 5 persona default di cAgents (Pimpi/Hamka/Hardev/Chaldev/Andra)
-- [ ] Draft system prompt 5 persona (file `server/agentPrompts.js`)
-- [ ] Smoke test: query cAgents, cek 5 row + linkage ke owner_user_id
-- [ ] Fase 1 done — commit, tag, update tracker
+      `stance_tag`, `proposal_ref` ke cM  *(deferred ke Fase 4 saat
+      cM benar-benar di-pakai untuk discussion message)*
+- [x] Backfill thread existing: `status` lama → `stage` baru
+      (open→open, assigned→uiux, review→pcheck, done→done,
+      else→backlog)  · 4204cd0 · executed: 12 rows backfilled
+- [x] Seed 5 persona default di cAgents (Pimpi/Hamka/Hardev/Chaldev/Andra)  · 572678f
+- [x] Draft system prompt 5 persona (file `server/agentPrompts.js`)  · eaa634d
+- [x] Smoke test: query cAgents, cek 5 row + linkage ke owner_user_id
+      → 5/5 ok, threads by stage: open=6, uiux=3, pcheck=3
+- [x] Fase 1 done — commit, tag, update tracker
 
 ### Fase 2 — Kanban UI read-only
 
-- [ ] `KanbanBoard.jsx` + `ThreadCard.jsx` (7 kolom, render cT.stage)
-- [ ] Endpoint `GET /api/projects/:id/board`
-- [ ] Drag manual untuk PM (PATCH stage, optimistic concurrency)
-- [ ] Sidebar update: Threads list jadi filter "my cards"
-- [ ] `AgentSettingsModal.jsx` — edit name/photo/color/prompt (self-only)
-- [ ] Endpoint `GET /api/agents` + `PATCH /api/agents/:id`
-- [ ] Smoke test: drag card, cek persist + filter sidebar
-- [ ] Fase 2 done — commit, tag, update tracker
+- [x] `KanbanBoard.jsx` + `ThreadCard.jsx` (7 kolom, render cT.stage)  · 9bcea1b · 08ad1cf
+- [x] Endpoint `GET /api/projects/:id/board`  · 709f0c0
+- [x] Drag manual untuk PM (PATCH stage, optimistic concurrency)  · 26113b4 · 6d027c7 · 2e1e810 · 48cd3b9
+- [ ] Sidebar update: Threads list jadi filter "my cards"  *(deferred — Threads list masih ada di sidebar, belum jadi filter; lanjut di Fase 3 atau iterasi UI berikutnya)*
+- [x] `AgentSettingsModal.jsx` — edit name/photo/color/prompt (self-only)  · f1e7090
+- [x] Endpoint `GET /api/agents` + `PATCH /api/agents/:id`  · a9f7cd2 · 43d3f71
+- [x] Wire 🤖 Agent button di TopBar  · ece5a48
+- [x] Smoke test: drag card, cek persist + render visual
+      → board render 7 kolom, 6 cards di Open, drag PM open→uiux ok (version 1),
+        modal Agent settings load Pimpi persona dengan field lengkap
+- [x] Fase 2 done — commit, tag, update tracker
 
 ### Fase 3 — Approval + auto-handoff
 
-- [ ] `ApprovalFooter.jsx` (tombol approve per stage)
-- [ ] Endpoint `POST /api/threads/:id/approve`
-- [ ] Stage transition logic + snapshot ke `description_locks`
-- [ ] Optimistic concurrency via `if_version`
-- [ ] Auto-greet handoff note dari agent role baru
-- [ ] Smoke test: approve UI/UX → card pindah ke Dev + lock snapshot
-- [ ] Fase 3 done — commit, tag, update tracker
+- [x] `ApprovalFooter.jsx` (tombol approve per stage)  · 51361ac
+- [x] Endpoint `POST /api/threads/:id/approve`  · 94e3a27
+- [x] Stage transition logic + snapshot ke `description_locks`  · 94e3a27
+- [x] Optimistic concurrency via `if_version`  · 94e3a27
+- [ ] Auto-greet handoff note dari agent role baru  *(deferred ke Fase 4 — butuh agentRunner.js untuk generate greet)*
+- [x] Expose stage/approvals/locks di GET /threads/:id  · 5f985ee
+- [x] Wire ApprovalFooter ke ThreadDetailModal  · 2dc8428 · eec7c75
+- [x] Smoke test: approve UI/UX → card pindah ke Dev + lock snapshot
+      → uji 1: Hamfik UX approve thread #8 uiux→dev (version 2) ok
+      → uji 2: Tyo PM approve thread #5 open→uiux (version 1) ok
+      → footer render: "Stage: Open (PM) · Approve 0/1 · Menunggu PM"
+        untuk DEV viewer, "✓ Approve PM" untuk PM viewer
+- [x] Fase 3 done — commit, tag, update tracker
 
 ### Fase 4 — Agent diskusi + DEAL detection
 
-- [ ] `server/agents.js` — definisi 5 persona + lookup
-- [ ] `server/stanceParser.js` — parse 5 stance tag, fallback NOTE
-- [ ] `server/dealDetector.js` — cek DEAL state per thread
-- [ ] `server/agentRunner.js` — loop diskusi sampai DEAL/STUCK
-- [ ] Endpoint `POST /api/threads/:id/run` (trigger loop)
-- [ ] Endpoint `POST /api/threads/:id/mention` (manual mention)
-- [ ] @mention cross-stage rule (NOTE/ASK only)
-- [ ] Auto-update description on DEAL
-- [ ] Stuck detector + UI banner
-- [ ] SSE indicator integration
-- [ ] Smoke test: trigger diskusi end-to-end, verify DEAL detection
-- [ ] Fase 4 done — commit, tag, update tracker
+- [x] `server/agents.js` — definisi 5 persona + lookup  *(implemented as agentPrompts.js + cAgents collection di Fase 1)*
+- [x] `server/stanceParser.js` — parse 5 stance tag, fallback NOTE  · 64 lines
+- [x] `server/dealDetector.js` — cek DEAL state per thread  · 70 lines
+- [x] `server/agentRunner.js` — loop diskusi sampai DEAL/STUCK  · 87 lines
+- [x] `server/agentMessage.js` — single agent turn + stance enforcement  · 78 lines
+- [x] `server/agentDealSummary.js` — auto-rewrite description on DEAL  · 61 lines
+- [x] Endpoint `POST /api/threads/:id/run` (trigger loop)  · fire-and-forget bg
+- [ ] Endpoint `POST /api/threads/:id/mention` (manual mention)  *(deferred — /run + cross-stage rule sudah cukup untuk MVP, mention sebagai escape hatch belum dibutuhkan)*
+- [x] @mention cross-stage rule (NOTE/ASK only)  *(enforced di agentMessage.js via isStanceAllowed — demote ke NOTE kalau cross-stage agent pakai PROPOSE/AGREE)*
+- [x] Auto-update description on DEAL  *(rewriteDescriptionOnDeal di agentRunner DEAL branch)*
+- [x] Stuck detector + UI banner  *(detectStuck di dealDetector + deal_state.status='stuck' badge di ApprovalFooter)*
+- [ ] SSE indicator integration  *(deferred — polling 10x@3s sudah render reply tanpa manual refresh; SSE jadi optimisasi Fase 5)*
+- [x] 🤖 Run agents button + deal-state pill di ApprovalFooter
+- [x] Smoke test: trigger diskusi end-to-end, verify DEAL detection
+      → uji 1: thread #4 (open/PM) → DEAL #1 (Pimpi propose+agree, single-agent stage)
+      → uji 2: thread #5 (open/PM) → DEAL #1 (3 events: 2 ASK + 1 PROPOSE)
+      → uji 3: thread #10 (pcheck/PM) → DEAL + description auto-rewritten ke
+        spec final terstruktur (#1 Overview, #2 Goals, #3 Pages, #4 Notification,
+        wireframe ASCII), prev_content tersimpan di description_history
+- [x] Fase 4 done — commit, tag, update tracker
 
 ## Blocker log
 

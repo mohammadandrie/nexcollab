@@ -32,6 +32,11 @@ async function ensureIndexes(db) {
   await db.collection('chat_views').createIndex(
     { chat_id: 1, user_id: 1 }, { unique: true });
   await db.collection('chat_views').createIndex({ user_id: 1 });
+  // Multi-agent kanban (mak): agents are 1:1 with users, but stored
+  // separately so persona/prompt/photo edits don't touch the auth row.
+  await db.collection('agents').createIndex(
+    { owner_user_id: 1 }, { unique: true });
+  await db.collection('agents').createIndex({ role: 1 });
 }
 
 // Auto-incrementing numeric IDs (frontend expects integers).
@@ -53,3 +58,4 @@ export const cC = () => getDb().collection('chats');
 export const cM = () => getDb().collection('messages');
 export const cT = () => getDb().collection('threads');
 export const cCV = () => getDb().collection('chat_views');
+export const cA = () => getDb().collection('agents');
