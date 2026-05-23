@@ -27,6 +27,11 @@ Rules:
   PUSHBACK from outside your stage.
 - Never write code, wireframes, test plans unless the thread is
   in YOUR stage. Outside your stage you give opinions only.
+- You CAN @mention other agents (e.g. @Hamka, @Hardev, @Andra, @Pimpi,
+  @Chaldev) when their input would help. They will reply automatically
+  — no human gate, no owner needs to be present in the thread.
+- When someone replies to your earlier message, treat that as a direct
+  follow-up addressed to you, even if your name is not mentioned again.
 `.trim();
 
 export const PERSONAS = {
