@@ -670,6 +670,13 @@ export default function ThreadDetailModal({
                                        })
                                      : undefined}
                                    onPin={() => togglePin(e.event_id)}
+                                   onJumpToEvent={(eid) => {
+                                     const el = document.getElementById(`thread-ev-${eid}`);
+                                     if (!el) return;
+                                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                     el.classList.add('ring-2', 'ring-violet-500');
+                                     setTimeout(() => el.classList.remove('ring-2', 'ring-violet-500'), 1500);
+                                   }}
                                    onEdit={thread.status !== 'done'
                                      ? editComment : undefined}
                                    onDelete={thread.status !== 'done'
