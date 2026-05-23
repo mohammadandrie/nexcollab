@@ -118,6 +118,8 @@ export default function KanbanBoard({ projectId, currentUser, members = [], onOp
                       draggable={isPM}
                       onDragStart={() => setDragId(c.id)}
                       onOpen={onOpenThread}
+                      currentUserId={currentUser?.id ?? currentUser?._id ?? null}
+                      onChanged={() => load()}
                     />
                   ))
                 )}

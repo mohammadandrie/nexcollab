@@ -1,6 +1,7 @@
 // Mini thread card rendered inside a kanban column.
 // Read-only in Fase 2 — drag handler is wired by parent KanbanBoard.
 import Avatar from './Avatar.jsx';
+import ThreadActionsMenu from './ThreadActionsMenu.jsx';
 
 const STAGE_BADGE = {
   backlog: { label: 'draft',  className: 'bg-zinc-500/15 text-zinc-300' },
@@ -19,7 +20,7 @@ const DEAL_DOT = {
   deal:    { title: 'DEAL — siap di-approve',  className: 'bg-emerald-400' },
 };
 
-export default function ThreadCard({ card, onOpen, onDragStart, draggable }) {
+export default function ThreadCard({ card, onOpen, onDragStart, draggable, currentUserId, onChanged }) {
   const badge = STAGE_BADGE[card.stage] ?? STAGE_BADGE.backlog;
   const dot = DEAL_DOT[card.deal_status] ?? null;
   const assignee = card.assignee;
@@ -51,6 +52,14 @@ export default function ThreadCard({ card, onOpen, onDragStart, draggable }) {
           />
         )}
         <span className="ml-auto text-[10px] theme-muted">#{card.id}</span>
+        {(card.originator_id === currentUserId) && (
+          <ThreadActionsMenu
+            threadId={card.id} title={card.title}
+            canEdit canDelete
+            onTitleSaved={() => onChanged?.()}
+            onDeleted={() => onChanged?.()}
+          />
+        )}
       </div>
       <div className="mt-1.5 text-sm leading-snug line-clamp-2">{card.title}</div>
       <div className="mt-1.5 flex items-center justify-between text-[11px] theme-muted">

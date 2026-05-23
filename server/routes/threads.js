@@ -870,6 +870,7 @@ router.get('/projects/:id/board', requireAuth, async (req, res, next) => {
         legacy_status: r.status ?? null,
         version: r.version ?? 0,
         deal_status: r.deal_state?.status ?? 'idle',
+        originator_id: r.originator_id ?? null,
         assignee: r.current_assignee_id ? uMap[r.current_assignee_id] ?? null : null,
         creator: r.created_by ? uMap[r.created_by] ?? null : null,
         updated_at: r.updated_at,
