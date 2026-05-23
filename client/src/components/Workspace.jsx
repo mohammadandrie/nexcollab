@@ -352,6 +352,26 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
                   customCategories={s.customCategories || []}
                   onClose={() => setOpenThreadId(null)}
                   onChanged={() => s.loadThreads()}
+                  onTalkToAgent={async (thread) => {
+                    if (!s.chats?.private) {
+                      window.dispatchEvent(new CustomEvent('nexcollab:toast',
+                        { detail: { kind: 'error', text: 'Private chat belum siap.' } }));
+                      return;
+                    }
+                    try {
+                      await api(`/api/chats/${s.chats.private}/link`, {
+                        method: 'POST',
+                        body: JSON.stringify({ thread_id: thread.id }),
+                      });
+                      setOpenThreadId(null);
+                      s.setActiveTab?.('private');
+                      window.dispatchEvent(new CustomEvent('nexcollab:toast',
+                        { detail: { kind: 'success', text: `Private chat dilink ke #${thread.id}` } }));
+                    } catch (e) {
+                      window.dispatchEvent(new CustomEvent('nexcollab:toast',
+                        { detail: { kind: 'error', text: 'Gagal link: ' + (e.message || e) } }));
+                    }
+                  }}
                 />
               ) : (
                 <KanbanBoard
