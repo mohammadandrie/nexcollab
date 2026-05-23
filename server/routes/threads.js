@@ -10,6 +10,23 @@ import {
 
 const router = Router();
 
+// Multi-agent kanban: stage → required approver role(s).
+// 'dev' butuh BOTH developers approve; lainnya cukup 1 dari role itu.
+const STAGE_APPROVERS = {
+  backlog: [],            // draft, no approval needed
+  open: ['PM'],
+  uiux: ['UX'],
+  dev: ['DEV', 'DEV'],    // both devs must approve
+  qa: ['QA'],
+  pcheck: ['PM'],
+  done: [],
+};
+// stage → next stage on approve. 'done' is terminal.
+const NEXT_STAGE = {
+  backlog: 'open', open: 'uiux', uiux: 'dev',
+  dev: 'qa', qa: 'pcheck', pcheck: 'done', done: null,
+};
+
 // Build a thread-history transcript Hermes can reason about, then post the
 // reply as a synthetic `comment` event (actor_id: null, role: assistant).
 // Returned event is sent to the caller so the UI can render it immediately.
@@ -608,6 +625,84 @@ router.delete('/threads/:id/events/:eventId', requireAuth, async (req, res, next
                 updated_at: now } },
     );
     res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+// POST /api/threads/:id/approve — stage approval (mak Fase 3).
+// Records this user's approval for the current stage. When ALL required
+// approvers (per STAGE_APPROVERS) have approved, snapshot description to
+// description_locks[stage] and advance to NEXT_STAGE. Optimistic
+// concurrency via if_version on the read-side; the actual transition
+// uses an atomic updateOne keyed on the same version.
+router.post('/threads/:id/approve', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const t = await cT().findOne({ _id: id });
+    if (!t) return res.status(404).json({ detail: 'thread_not_found' });
+    const member = await cPM().findOne({ project_id: t.project_id, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+
+    const stage = t.stage || 'backlog';
+    const required = STAGE_APPROVERS[stage] || [];
+    if (required.length === 0) {
+      return res.status(409).json({ detail: 'stage_no_approval', stage });
+    }
+    if (!required.includes(req.user.role)) {
+      return res.status(403).json({ detail: 'wrong_role', expected: required, got: req.user.role });
+    }
+
+    const existing = (t.approvals || []).filter((a) => a.stage === stage);
+    if (existing.some((a) => a.user_id === req.user._id)) {
+      return res.status(409).json({ detail: 'already_approved' });
+    }
+
+    // Tally with this user added. For 'dev' stage we need 2 approvers,
+    // each must be a different user (role check above already validates DEV).
+    const approverIds = new Set(existing.map((a) => a.user_id));
+    approverIds.add(req.user._id);
+    const haveCount = approverIds.size;
+    const needCount = required.length;
+
+    const now = new Date();
+    const newApproval = { user_id: req.user._id, stage, ts: now };
+
+    if (haveCount < needCount) {
+      // Partial: just record approval, no transition.
+      await cT().updateOne(
+        { _id: id },
+        { $push: { approvals: newApproval }, $set: { updated_at: now } },
+      );
+      return res.json({
+        ok: true, advanced: false, stage,
+        approvals_have: haveCount, approvals_need: needCount,
+      });
+    }
+
+    // Full quorum → advance. Snapshot description to locks[stage] and move.
+    const next = NEXT_STAGE[stage];
+    const newVersion = (t.version || 0) + 1;
+    const histEntry = {
+      version: newVersion, ts: now, by_id: req.user._id,
+      by_kind: 'human', source: 'stage_approve',
+      from_stage: stage, to_stage: next,
+    };
+    const lockKey = `description_locks.${stage}`;
+    await cT().updateOne(
+      { _id: id, version: t.version || 0 },
+      {
+        $push: { approvals: newApproval, description_history: histEntry },
+        $set: {
+          stage: next,
+          updated_at: now,
+          [lockKey]: { content: t.description || '', ts: now, by_id: req.user._id },
+        },
+        $inc: { version: 1 },
+      },
+    );
+    res.json({
+      ok: true, advanced: true, stage: next, prev_stage: stage,
+      version: newVersion, approvals_have: haveCount, approvals_need: needCount,
+    });
   } catch (e) { next(e); }
 });
 
