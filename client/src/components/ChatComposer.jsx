@@ -34,7 +34,7 @@ export default function ChatComposer({
     ? mentionUsers.filter(
         (u) => u.username.toLowerCase().startsWith(mention.query)
             || u.name.toLowerCase().includes(mention.query),
-      ).slice(0, 6)
+      ).slice(0, 12)
     : [];
 
   function pickMention(u) {
