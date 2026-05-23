@@ -357,6 +357,7 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
                 <KanbanBoard
                   projectId={s.project?.id ?? null}
                   currentUser={user}
+                  members={s.members || []}
                   onOpenThread={(id) => setOpenThreadId(id)}
                 />
               )
