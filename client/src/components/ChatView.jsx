@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import MessageBubble from './MessageBubble.jsx';
 
 export default function ChatView({
-  messages, mode, activeTab,
-  onShare, onReply, onPin,
+  messages, mode, activeTab, currentUserId, loading, canPromote,
+  myAssignedThreads = [],
+  onShare, onReply, onPin, onPromote, onRetry,
 }) {
   const boxRef = useRef(null);
   const [showPinned, setShowPinned] = useState(true);
@@ -22,7 +23,7 @@ export default function ChatView({
   }
 
   let placeholder;
-  if (mode === 'general') placeholder = 'General chat. Start typing anything…';
+  if (mode === 'general') placeholder = 'Free chat. Start typing anything…';
   else if (activeTab === 'private') placeholder = 'Start a conversation with Hermes…';
   else placeholder = 'No decisions shared in this project yet.';
 
@@ -30,7 +31,7 @@ export default function ChatView({
   const pinned = messages.filter((m) => m.pinned && typeof m.id === 'number');
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 240px)', minHeight: 380 }}>
+    <div className="flex flex-col flex-1 min-h-0">
       {pinned.length > 0 && (
         <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/5">
           <button
@@ -60,16 +61,23 @@ export default function ChatView({
       )}
       <div
         ref={boxRef}
-        className="scrollbar bg-neutral-900/30 border border-neutral-800 rounded-xl
+        className="scrollbar theme-panel rounded-xl
                    p-3 sm:p-4 space-y-3 overflow-y-auto flex-1">
-        {messages.length === 0
-          ? <div className="text-center text-xs text-neutral-600 py-12">{placeholder}</div>
+        {loading
+          ? <div className="text-center text-xs theme-muted py-12">Loading messages…</div>
+          : messages.length === 0
+          ? <div className="text-center text-xs theme-muted py-12">{placeholder}</div>
           : messages.map((m) => (
               <MessageBubble key={m.id} msg={m}
                 canShare={canShare}
+                currentUserId={currentUserId}
+                canPromote={canPromote}
+                myAssignedThreads={myAssignedThreads}
                 onShare={onShare}
                 onReply={onReply}
                 onPin={onPin}
+                onPromote={onPromote}
+                onRetry={onRetry}
                 onJumpTo={jumpTo} />
             ))}
       </div>

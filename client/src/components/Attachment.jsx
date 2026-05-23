@@ -15,11 +15,16 @@ export default function Attachment({ a }) {
   const mime = a.mime || '';
   if (isImg(mime)) {
     return (
-      <a href={a.url} target="_blank" rel="noreferrer" className="block">
+      <button type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent(
+                'nexcollab:preview-image',
+                { detail: { url: a.url, alt: a.name } },
+              ))}
+              className="block p-0 border-0 bg-transparent cursor-zoom-in">
         <img src={a.url} alt={a.name}
           className="rounded-lg max-h-72 max-w-full object-cover
                      border border-[color:var(--border)]" />
-      </a>
+      </button>
     );
   }
   if (isVid(mime)) {

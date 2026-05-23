@@ -3,7 +3,7 @@ import MentionAutocomplete from './MentionAutocomplete.jsx';
 
 export default function ChatComposer({
   hint, disabled, onSend, mentionUsers = [],
-  replyingTo, onCancelReply,
+  replyingTo, onCancelReply, onTyping,
 }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -67,6 +67,29 @@ export default function ChatComposer({
     }
   }
 
+  // Paste files from clipboard (image, pdf, docx, xlsx, zip, …) → attachment.
+  // Image gets a synthesized friendly name; non-image keeps its original name.
+  function onPaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items || !items.length) return;
+    const files = [];
+    for (const it of items) {
+      if (it.kind !== 'file') continue;
+      const f = it.getAsFile();
+      if (!f) continue;
+      if (f.type.startsWith('image/')) {
+        const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+        files.push(new File([f], `pasted-${Date.now()}.${ext}`, { type: f.type }));
+      } else {
+        files.push(f);
+      }
+    }
+    if (files.length) {
+      e.preventDefault();
+      uploadFiles(files);
+    }
+  }
+
   function removeAttachment(idx) {
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
   }
@@ -79,6 +102,7 @@ export default function ChatComposer({
     const sentAttachments = attachments;
     const sentReplyId = replyingTo?.id ?? null;
     setText(''); setAttachments([]);
+    onTyping?.(false);
     try { await onSend(v, sentAttachments, sentReplyId); }
     finally { setBusy(false); taRef.current?.focus(); }
   }
@@ -100,6 +124,8 @@ export default function ChatComposer({
   function onChange(e) {
     const v = e.target.value;
     setText(v);
+    if (v.length > 0) onTyping?.(true);
+    else onTyping?.(false);
     const next = detectMention(v, e.target.selectionStart ?? v.length);
     setMention(next);
     if (next) setMentionIdx(0);
@@ -157,6 +183,7 @@ export default function ChatComposer({
           rows={1}
           onChange={onChange}
           onKeyDown={onKey}
+          onPaste={onPaste}
           placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
           className="flex-1 theme-input text-sm resize-none"
         />

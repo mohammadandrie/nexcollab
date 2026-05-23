@@ -1,5 +1,6 @@
 // Dropdown shown above the composer when user types `@partial`.
 // Pure presentational — keyboard nav lives in the parent ChatComposer.
+import Avatar from './Avatar.jsx';
 
 export default function MentionAutocomplete({ users, selectedIndex, onSelect }) {
   if (!users.length) return null;
@@ -18,12 +19,8 @@ export default function MentionAutocomplete({ users, selectedIndex, onSelect }) 
               ? 'bg-indigo-500/15 text-[color:var(--fg)]'
               : 'hover:bg-[color:var(--bg-2)]'
           }`}>
-          <div className="w-6 h-6 rounded-full flex items-center justify-center
-                          text-[11px] font-bold flex-shrink-0"
-            style={{ background: u.color + '22', color: u.color,
-                     border: `1px solid ${u.color}55` }}>
-            {u.avatar_letter}
-          </div>
+          <Avatar photoUrl={u.photo_url} letter={u.avatar_letter}
+                  color={u.color} size={24} />
           <span>{u.name}</span>
           <span className="text-[11px] theme-muted ml-auto">@{u.username}</span>
         </button>
