@@ -114,6 +114,27 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
     }
   }
 
+  // DESC_UPDATE rewriter: if agent emitted a fenced description block,
+  // apply it to thread.description and strip the block from body. Format:
+  //   <<DESC_UPDATE>>
+  //   <new full description text>
+  //   <<END>>
+  // Backend-controlled — only a stage agent (or PM cross-stage) can rewrite.
+  let descUpdated = false;
+  const descMatch = bodyContent.match(/<<DESC_UPDATE>>\s*([\s\S]*?)\s*<<END>>/);
+  if (descMatch && (isStageAgent || agent.role === 'pm')) {
+    const newDesc = String(descMatch[1] || '').trim().slice(0, 8000);
+    if (newDesc) {
+      await cT().updateOne(
+        { _id: threadId },
+        { $set: { description: newDesc, updated_at: new Date() } },
+      );
+      descUpdated = true;
+    }
+    bodyContent = bodyContent.replace(descMatch[0],
+      descUpdated ? '_(description telah diupdate)_' : '_(desc update kosong, dilewati)_');
+  }
+
   // Extract @AgentName tokens from final body for `mentions` metadata.
   const mentionTokens = [...bodyContent.matchAll(/@(\w+)/g)].map((m) => m[1].toLowerCase());
   const mentionedAgentIds = allAgents

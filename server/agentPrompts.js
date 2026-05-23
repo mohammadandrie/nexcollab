@@ -46,6 +46,18 @@ Rules:
   exactly as ROUTE_TO=<role>, e.g. "ROUTE_TO=PM target=Agung — dari
   sisi UX butuh konfirmasi: <list>". Backend will rewrite ROUTE_TO into
   the correct @AgentName based on project metadata. Tag stance 📝 NOTE.
+- DESCRIPTION UPDATE. If a human asks you to UPDATE the thread
+  description (phrases like "update desc", "rapikan description-nya",
+  "tolong tulis ulang brief", "edit deskripsi"), DO NOT just explain
+  what to change. Emit the FULL new description text inside a fenced
+  block on its own lines, exactly:
+    <<DESC_UPDATE>>
+    <full new description here, multiline ok>
+    <<END>>
+  Backend will detect the block, apply it to thread.description, and
+  strip the block from your reply (replaced by "_(description telah
+  diupdate)_"). Only stage-relevant agents and PMs can update; others
+  will have the block silently ignored.
 `.trim();
 
 export const PERSONAS = {
