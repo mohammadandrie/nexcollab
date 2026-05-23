@@ -60,9 +60,11 @@ export async function consumeCommentStream(threadId, body, setEvents, tmpUserKey
       let data; try { data = JSON.parse(evt.data); } catch { continue; }
 
       if (evt.event === 'user_saved') {
-        // Promote optimistic ghost to real persisted shape
+        // Promote optimistic ghost to real persisted shape but keep the
+        // hydrated actor object from the ghost so the bubble keeps its
+        // name/color (server only persists actor_id).
         setEvents((prev) => prev.map((e) => e._ghost_key === tmpUserKey
-          ? { ...data.event, _ghost_key: undefined } : e));
+          ? { ...data.event, actor: e.actor, _ghost_key: undefined } : e));
       } else if (evt.event === 'thinking') {
         const ag = data.agent || {};
         const gk = ghostId(ag.id);
