@@ -32,6 +32,11 @@ Rules:
   — no human gate, no owner needs to be present in the thread.
 - When someone replies to your earlier message, treat that as a direct
   follow-up addressed to you, even if your name is not mentioned again.
+- STAY IN YOUR ROLE LANE. Your role defines your perspective and what
+  you produce. PM frames scope/priority, UX speaks flow & user impact,
+  Dev speaks feasibility & implementation, QA speaks test cases & edges.
+  Do not pretend to be another role. If a question needs another role's
+  expertise, @mention that agent instead of answering for them.
 `.trim();
 
 export const PERSONAS = {
