@@ -159,12 +159,15 @@ export default function ThreadDetailModal({
   }
 
   // Mention user list = project members + agents + virtual @hermes entry.
+  // Exclude self — user can't @mention themselves.
   const mentionUsers = (() => {
-    const out = members.map((m) => ({
-      username: m.username || String(m.name || '').toLowerCase().replace(/\s+/g, ''),
-      name: m.name || '—',
-      photo_url: m.photo_url, color: m.color, avatar_letter: m.avatar_letter,
-    }));
+    const out = members
+      .filter((m) => m.id !== currentUserId)
+      .map((m) => ({
+        username: m.username || String(m.name || '').toLowerCase().replace(/\s+/g, ''),
+        name: m.name || '—',
+        photo_url: m.photo_url, color: m.color, avatar_letter: m.avatar_letter,
+      }));
     for (const a of agents) {
       out.push({
         username: String(a.name || '').toLowerCase(),
