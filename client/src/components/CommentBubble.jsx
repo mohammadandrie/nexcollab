@@ -77,8 +77,18 @@ export default function CommentBubble({
 
   const isAi = ev.actor_id == null;
   const isMine = !isAi && ev.actor_id === currentUserId;
+  // AI bubble: prefer hydrated agent persona over generic Hermes default.
+  const aiAuthor = ev.agent
+    ? {
+        name: ev.agent.name || 'Agent',
+        color: ev.agent.color || '#818cf8',
+        letter: (ev.agent.name || '?')[0]?.toUpperCase() || '✦',
+        role: (ev.agent.role || '').toUpperCase(),
+        photo_url: ev.agent.photo_url || null,
+      }
+    : { name: 'Hermes', color: '#818cf8', letter: '✦', role: 'AI', photo_url: null };
   const author = isAi
-    ? { name: 'Hermes', color: '#818cf8', letter: '✦', role: 'AI', photo_url: null }
+    ? aiAuthor
     : {
         name: ev.actor?.name || '—',
         color: ev.actor?.color || '#888',
