@@ -323,9 +323,8 @@ router.patch('/threads/:id', requireAuth, async (req, res, next) => {
     const id = parseInt(req.params.id, 10);
     const t = await loadThreadOr403(id, req.user, res);
     if (!t) return;
-    if (t.originator_id !== req.user._id) {
-      return res.status(403).json({ detail: 'originator_only' });
-    }
+    // Members can edit title/description/category. Originator-only check
+    // moved to body-field-specific gates below if/when we tighten.
     if (t.status === 'done') return res.status(409).json({ detail: 'thread_closed' });
     // Optimistic concurrency: if the client sent the version it last loaded,
     // reject when the server has moved on. `null`/missing = legacy client,
