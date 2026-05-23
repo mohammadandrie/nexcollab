@@ -58,6 +58,7 @@ import ShareModal from './ShareModal.jsx';
 import ProfileModal from './ProfileModal.jsx';
 import ProjectSettingsModal from './ProjectSettingsModal.jsx';
 import ThreadList from './ThreadList.jsx';
+import KanbanBoard from './KanbanBoard.jsx';
 import PromoteModal from './PromoteModal.jsx';
 import ThreadDetailModal from './ThreadDetailModal.jsx';
 import InboxStrip from './InboxStrip.jsx';
@@ -330,13 +331,10 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
                   onChanged={() => s.loadThreads()}
                 />
               ) : (
-                <ThreadList
-                  threads={s.threads}
-                  loading={s.threadsLoading}
-                  currentUserId={user?.id ?? user?._id ?? null}
+                <KanbanBoard
                   projectId={s.project?.id ?? null}
-                  onOpen={(id) => setOpenThreadId(id)}
-                  onChanged={() => s.loadThreads()}
+                  currentUser={user}
+                  onOpenThread={(id) => setOpenThreadId(id)}
                 />
               )
             ) : (
