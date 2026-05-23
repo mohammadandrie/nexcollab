@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import Avatar from './Avatar.jsx';
+import { AVATAR_PRESETS } from '../avatarPresets.js';
 
 const PRESET_COLORS = [
   '#a78bfa', '#f472b6', '#34d399', '#fbbf24',
@@ -10,6 +12,7 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
   const [name, setName] = useState('');
   const [letter, setLetter] = useState('');
   const [color, setColor] = useState('#888');
+  const [photoUrl, setPhotoUrl] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -18,6 +21,7 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
       setName(user.name || '');
       setLetter(user.avatar_letter || '');
       setColor(user.color || '#888');
+      setPhotoUrl(user.photo_url || null);
       setErr('');
     }
   }, [open, user]);
@@ -27,12 +31,12 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
   async function save() {
     const n = name.trim();
     const l = letter.trim().slice(0, 2);
-    if (!n) { setErr('Nama wajib diisi.'); return; }
+    if (!n) { setErr('Name is required.'); return; }
     setBusy(true); setErr('');
     try {
       const { user: updated } = await api('/api/auth/me', {
         method: 'PATCH',
-        body: JSON.stringify({ name: n, avatar_letter: l, color }),
+        body: JSON.stringify({ name: n, avatar_letter: l, color, photo_url: photoUrl || null }),
       });
       onSaved(updated);
     } catch (e) {
@@ -45,32 +49,55 @@ export default function ProfileModal({ open, user, onClose, onSaved }) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(8px)' }}>
-      <div className="w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+      <div className="w-full max-w-md theme-card rounded-xl p-4">
         <div className="text-sm font-semibold mb-1">Your profile</div>
         <div className="text-[11px] theme-muted mb-3">
           Edit display name, avatar letter, and color. Username is read-only.
         </div>
 
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold"
-            style={{ background: color + '22', color, border: `1px solid ${color}55` }}>
-            {letter || '?'}
-          </div>
-          <div className="text-[11px] text-neutral-500">
+          <Avatar photoUrl={photoUrl} letter={letter} color={color} size={48} />
+          <div className="text-[11px] theme-muted">
             preview · @{user?.username}
           </div>
         </div>
 
+        <label className="text-[11px] theme-muted block mb-1.5">Choose avatar</label>
+        <div className="grid grid-cols-6 gap-2 mb-3">
+          <button type="button" onClick={() => setPhotoUrl(null)}
+            title="Use letter avatar"
+            className={`aspect-square rounded-lg flex items-center justify-center
+                        bg-[color:var(--bg-2)] border text-[18px]
+                        transition-transform duration-150
+                        hover:scale-105 ${
+              !photoUrl ? 'border-indigo-400 ring-2 ring-indigo-400/40'
+                        : 'border-[color:var(--border)]'
+            }`}>
+            <span style={{ color }}>{letter || '?'}</span>
+          </button>
+          {AVATAR_PRESETS.map((p) => (
+            <button key={p.id} type="button"
+              title={p.name}
+              onClick={() => setPhotoUrl(p.url)}
+              className={`aspect-square rounded-lg overflow-hidden border
+                          transition-transform duration-150 hover:scale-105 ${
+                photoUrl === p.url ? 'border-indigo-400 ring-2 ring-indigo-400/40'
+                                   : 'border-[color:var(--border)]'
+              }`}>
+              <img src={p.url} alt={p.name} loading="lazy" draggable={false}
+                   className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+
         <label className="text-[11px] theme-muted">Display name</label>
         <input value={name} onChange={(e) => setName(e.target.value)}
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm mb-3
-                     focus:outline-none focus:border-indigo-500/50" />
+          className="w-full theme-input text-sm mb-3" />
 
         <label className="text-[11px] theme-muted">Avatar letter (1–2 chars / emoji)</label>
         <input value={letter} onChange={(e) => setLetter(e.target.value)}
           maxLength={2}
-          className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-2 text-sm mb-3
-                     focus:outline-none focus:border-indigo-500/50" />
+          className="w-full theme-input text-sm mb-3" />
 
         <label className="text-[11px] theme-muted block mb-1">Color</label>
         <div className="flex gap-2 flex-wrap mb-3">

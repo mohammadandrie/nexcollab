@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 
-const KEY = 'nexcollab.theme';
+const KEY_THEME = 'nexcollab.theme';
 
 function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
-  localStorage.setItem(KEY, t);
+  localStorage.setItem(KEY_THEME, t);
 }
 
 export function loadInitialTheme() {
-  const saved = localStorage.getItem(KEY);
+  const saved = localStorage.getItem(KEY_THEME);
   const sys = window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   const t = saved || sys;
   document.documentElement.setAttribute('data-theme', t);
@@ -19,6 +19,7 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState(
     () => document.documentElement.getAttribute('data-theme') || 'dark'
   );
+
   useEffect(() => { applyTheme(theme); }, [theme]);
 
   return (

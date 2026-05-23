@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ROLE_LABEL } from '../api.js';
+import Avatar from './Avatar.jsx';
 
 export default function Login({ onLogin }) {
   const [users, setUsers] = useState([]);
@@ -43,16 +44,13 @@ export default function Login({ onLogin }) {
               <button
                 key={u.id}
                 onClick={() => login(u.username)}
-                className="flex items-center gap-3 p-2.5 rounded-lg bg-neutral-950
-                           border border-neutral-800 hover:border-neutral-700 text-left">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center
-                                text-sm font-bold"
-                  style={{ background: u.color + '22', color: u.color, border: `1px solid ${u.color}55` }}>
-                  {u.avatar_letter}
-                </div>
+                className="flex items-center gap-3 p-2.5 rounded-lg theme-card
+                           hover:opacity-90 text-left">
+                <Avatar photoUrl={u.photo_url} letter={u.avatar_letter}
+                        color={u.color} size={36} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm">{u.name}</div>
-                  <div className="text-[11px] text-neutral-500">{ROLE_LABEL[u.role] || u.role}</div>
+                  <div className="text-[11px] theme-muted">{ROLE_LABEL[u.role] || u.role}</div>
                 </div>
                 <span className="text-neutral-600 text-xs">→</span>
               </button>

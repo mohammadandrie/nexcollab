@@ -56,7 +56,7 @@ export default function ProjectSettingsModal({ open, project, onClose, onSaved, 
       onClick={(e) => e.target === e.currentTarget && onClose()}
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(8px)' }}>
-      <div className="w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-xl p-4">
+      <div className="w-full max-w-md theme-card rounded-xl p-4">
         <div className="text-sm font-semibold mb-3">Project settings</div>
 
         <label className="text-[11px] theme-muted">Project name</label>
