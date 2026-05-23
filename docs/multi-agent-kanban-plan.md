@@ -466,6 +466,26 @@ Format: `YYYY-MM-DD · <fase> · <ringkasan> · status`
 
 (kosong)
 
+## Polish round (post-fase-4 iteration di main)
+
+- [x] Auto-greet handoff note  · agentHandoffGreet.js (53 lines) +
+      5-line wire di approve advance branch · uji: Hamfik approve thread
+      #11 uiux→dev → Hardev post NOTE "Picking up from UI/UX..."
+- [x] Bug fix: approve update no-op when version field missing  ·
+      drop version from updateOne filter, manual backfill 9 rows
+      via updateMany({version:{$exists:false}},{$set:{version:0}})
+- [x] POST /threads/:id/mention/:agentId — escape hatch (24 lines) ·
+      uji: Hamka mention thread #4 (open/PM stage) → cross-stage rule
+      kicks in, demoted ke stance_tag='ask' (correct, ASK allowed)
+- [x] Global inbox /api/my-cards (39 lines) — paket A from
+      workflow-upgrade-plan.md is now covered
+- [x] MyCardsModal.jsx (78 lines) — modal UI for inbox
+- [x] 📥 My cards button di TopBar + 30s poll badge count
+- [ ] SSE indicator integration  *(deferred — polling 10x@3s di
+      ApprovalFooter sudah render reply tanpa manual refresh; SSE
+      sebagai Fase 5 polish, butuh refactor chatStream.js helper
+      ke shared SSE consumer)*
+
 ## Hubungan ke paket A/B/C/D
 
 Paket ini **menggantikan paket B** (status lane explicit) — lane
