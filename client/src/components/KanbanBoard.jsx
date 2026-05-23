@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api.js';
 import ThreadCard from './ThreadCard.jsx';
+import NewThreadModal from './NewThreadModal.jsx';
 
 const COLS = [
   { key: 'backlog', label: 'Backlog', sub: 'draft' },
@@ -14,11 +15,12 @@ const COLS = [
   { key: 'done',    label: 'Done',    sub: '✓' },
 ];
 
-export default function KanbanBoard({ projectId, currentUser, onOpenThread }) {
+export default function KanbanBoard({ projectId, currentUser, members = [], onOpenThread }) {
   const [board, setBoard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState(null);
   const [dropOver, setDropOver] = useState(null);
+  const [newThreadStage, setNewThreadStage] = useState(null);
 
   const isPM = currentUser?.role === 'PM';
 
@@ -98,7 +100,12 @@ export default function KanbanBoard({ projectId, currentUser, onOpenThread }) {
                   <div className="text-sm font-semibold">{col.label}</div>
                   <div className="text-[10px] theme-muted uppercase tracking-wide">{col.sub}</div>
                 </div>
-                <span className="text-xs theme-muted">{cards.length}</span>
+                <div className="flex items-baseline gap-1.5">
+                  <button onClick={() => setNewThreadStage(col.key)}
+                    title={`+ New thread di ${col.label}`}
+                    className="text-xs theme-muted hover:text-[color:var(--accent)] px-1">+</button>
+                  <span className="text-xs theme-muted">{cards.length}</span>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-2">
                 {cards.length === 0 ? (
@@ -119,6 +126,14 @@ export default function KanbanBoard({ projectId, currentUser, onOpenThread }) {
           );
         })}
       </div>
+      <NewThreadModal
+        open={!!newThreadStage}
+        projectId={projectId}
+        defaultStage={newThreadStage}
+        members={members}
+        onClose={() => setNewThreadStage(null)}
+        onCreated={() => load()}
+      />
     </div>
   );
 }
