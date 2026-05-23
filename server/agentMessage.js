@@ -18,7 +18,7 @@ function fmtEvent(ev, userMap, agentMap) {
   return `[${who}] ${ev.content || ''}`;
 }
 
-export async function runAgentTurn({ threadId, agentId, isStageAgent }) {
+export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUser = null }) {
   const thread = await cT().findOne({ _id: threadId });
   if (!thread) throw new Error('thread_not_found');
   const agent = await cA().findOne({ _id: agentId });
@@ -39,7 +39,11 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent }) {
     ? `You ARE accountable for stage "${thread.stage}". You may PROPOSE/AGREE/PUSHBACK/ASK/NOTE.`
     : `You are NOT in stage "${thread.stage}" — you were @mentioned. Reply ONLY with NOTE or ASK. No code/wireframes/test plans.`;
 
-  const sys = `${agent.system_prompt}\n\nThread: "${thread.title}"\nDescription: ${thread.description || '(none)'}\nCurrent stage: ${thread.stage || 'backlog'}\n${stageNote}`;
+  const speakerLine = triggerUser
+    ? `\nThe user currently speaking to you is ${triggerUser.name} (${triggerUser.role}). Address them by name when greeting; do NOT address other people from the transcript as if they just spoke.`
+    : '';
+
+  const sys = `${agent.system_prompt}\n\nThread: "${thread.title}"\nDescription: ${thread.description || '(none)'}\nCurrent stage: ${thread.stage || 'backlog'}\n${stageNote}${speakerLine}`;
 
   const transcript = events.map((e) => fmtEvent(e, userMap, agentMap)).join('\n');
   const userMsg = transcript

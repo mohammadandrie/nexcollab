@@ -306,7 +306,7 @@ router.post('/threads/:id/comment', requireAuth, async (req, res, next) => {
           const STAGE_ROLES = { backlog:['pm'], open:['pm'], uiux:['ux','pm'],
             dev:['dev'], qa:['qa'], pcheck:['pm'], done:[] };
           const isStageAgent = (STAGE_ROLES[t.stage || 'backlog'] || []).includes(target.role);
-          hermesEvent = await runAgentTurn({ threadId: id, agentId: target._id, isStageAgent });
+          hermesEvent = await runAgentTurn({ threadId: id, agentId: target._id, isStageAgent, triggerUser: req.user });
         } catch (e) { console.warn('[threads] agent reply failed', e.message); }
       } else if (mentionTokens.includes('hermes')) {
         try { hermesEvent = await replyAsHermes(id, req.user); }
@@ -900,7 +900,7 @@ router.post('/threads/:id/mention/:agentId', requireAuth, async (req, res, next)
     if (!agent) return res.status(404).json({ detail: 'agent_not_found' });
     const stageRoles = stageRolesByStage[t.stage || 'backlog'] || [];
     const isStageAgent = stageRoles.includes(agent.role);
-    const ev = await runAgentTurn({ threadId: id, agentId, isStageAgent });
+    const ev = await runAgentTurn({ threadId: id, agentId, isStageAgent, triggerUser: req.user });
     res.json({ ok: true, event: ev, isStageAgent });
   } catch (e) { next(e); }
 });
