@@ -195,6 +195,13 @@ router.get('/threads/:id', requireAuth, async (req, res, next) => {
       t.originator_id, t.current_assignee_id,
       ...(t.events || []).map((e) => e.actor_id),
     ]);
+    // Hydrate agent metadata so client bubble can render persona name/color/avatar.
+    const agentIds = [...new Set((t.events || []).map((e) => e.agent_id).filter(Boolean))];
+    const agentRows = agentIds.length ? await cA().find(
+      { _id: { $in: agentIds } },
+      { projection: { _id: 1, name: 1, role: 1, color: 1, photo_url: 1 } },
+    ).toArray() : [];
+    const agentMap = Object.fromEntries(agentRows.map((a) => [a._id, a]));
     const events = t.events || [];
     // Lookup table so reply_to references can be expanded into a tiny preview.
     const evById = Object.fromEntries(
@@ -228,6 +235,7 @@ router.get('/threads/:id', requireAuth, async (req, res, next) => {
         events: events.map((e) => ({
           ...e,
           actor: e.actor_id ? (userMap[e.actor_id] || null) : null,
+          agent: e.agent_id ? (agentMap[e.agent_id] || null) : null,
           pinned: e.event_id != null && pinnedSet.has(e.event_id),
           reply_to: e.reply_to_event_id != null
             ? summarizeEvent(e.reply_to_event_id) : null,
