@@ -747,17 +747,32 @@ export default function ThreadDetailModal({
                   </button>
                 )}
                 {(() => {
-                  const comments = (thread.events || []).filter(
-                    (e) => e.kind === 'comment',
-                  );
-                  if (comments.length === 0) {
+                  const events = thread.events || [];
+                  const comments = events.filter((e) => e.kind === 'comment');
+                  // Server-side running_agents → render as thinking ghosts so
+                  // reopen mid-call resumes the bubble. Skip ones that already
+                  // have a local SSE ghost (_ghost_key=thinking-agent-N).
+                  const localKeys = new Set(comments
+                    .filter((e) => e._ghost_key).map((e) => e._ghost_key));
+                  const serverGhosts = (thread.running_agents || [])
+                    .filter((r) => !localKeys.has(`thinking-agent-${r.agent_id}`))
+                    .map((r) => ({
+                      _ghost_key: `srv-thinking-${r.agent_id}`,
+                      kind: 'comment', event_id: `srv-thinking-${r.agent_id}`,
+                      agent: r.agent, agent_id: r.agent_id,
+                      actor_id: null, ts: r.started_at, content: '',
+                      streaming: true, thinking: true,
+                      role_at_post: r.agent?.role || null,
+                    }));
+                  const merged = [...comments, ...serverGhosts];
+                  if (merged.length === 0) {
                     return (
                       <div className="text-center text-xs theme-muted py-12">
                         No comments yet. Start the discussion below.
                       </div>
                     );
                   }
-                  return comments.map((e, i) => (
+                  return merged.map((e, i) => (
                     <CommentBubble key={`ev-${e.event_id ?? i}`} ev={e}
                                    currentUserId={currentUserId}
                                    onReply={thread.status !== 'done'
