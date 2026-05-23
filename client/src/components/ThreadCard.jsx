@@ -52,7 +52,7 @@ export default function ThreadCard({ card, onOpen, onDragStart, draggable, curre
           />
         )}
         <span className="ml-auto text-[10px] theme-muted">#{card.id}</span>
-        {(card.originator_id === currentUserId) && (
+        {currentUserId != null && (
           <ThreadActionsMenu
             threadId={card.id} title={card.title}
             canEdit canDelete

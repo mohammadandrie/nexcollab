@@ -393,7 +393,7 @@ export default function ThreadDetailModal({
                 💬 Talk to my agent
               </button>
             )}
-            {thread.originator?.id === currentUserId && (
+            {currentUserId != null && thread && (
               <ThreadActionsMenu
                 threadId={threadId} title={thread.title}
                 canEdit canDelete

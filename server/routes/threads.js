@@ -556,15 +556,14 @@ router.post('/threads/:id/reopen', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// DELETE /api/threads/:id — originator deletes the whole thread.
+// DELETE /api/threads/:id — any member can delete.
 router.delete('/threads/:id', requireAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const t = await loadThreadOr403(id, req.user, res);
     if (!t) return;
-    if (t.originator_id !== req.user._id) {
-      return res.status(403).json({ detail: 'originator_only' });
-    }
+    // Membership already enforced by loadThreadOr403. Any member may delete
+    // (matches the relaxed PATCH gate). Audit trail kept via git commits.
     await cT().deleteOne({ _id: id });
     res.json({ ok: true });
   } catch (e) { next(e); }
