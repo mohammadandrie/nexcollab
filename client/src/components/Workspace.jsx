@@ -57,6 +57,7 @@ import CreateProjectModal from './CreateProjectModal.jsx';
 import ShareModal from './ShareModal.jsx';
 import ProfileModal from './ProfileModal.jsx';
 import AgentSettingsModal from './AgentSettingsModal.jsx';
+import MyCardsModal from './MyCardsModal.jsx';
 import ProjectSettingsModal from './ProjectSettingsModal.jsx';
 import ThreadList from './ThreadList.jsx';
 import KanbanBoard from './KanbanBoard.jsx';
@@ -73,6 +74,8 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
   const [shareMsg, setShareMsg] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showAgentSettings, setShowAgentSettings] = useState(false);
+  const [showMyCards, setShowMyCards] = useState(false);
+  const [myCardsCount, setMyCardsCount] = useState(0);
   const [settingsProject, setSettingsProject] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null); // {id, role, content, author_name, author_color}
   const [promoteMsg, setPromoteMsg] = useState(null);  // {id, content} → opens PromoteModal
@@ -272,7 +275,9 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
       <div className="h-screen flex flex-col overflow-hidden">
         <TopBar user={user} projectName={projectName} onLogout={onLogout}
                 onProfileClick={() => setShowProfile(true)}
-                onAgentSettingsClick={() => setShowAgentSettings(true)} />
+                onAgentSettingsClick={() => setShowAgentSettings(true)}
+                onMyCardsClick={() => setShowMyCards(true)}
+                myCardsCount={myCardsCount} />
 
         <div className="flex gap-2 pl-1 sm:pl-2 pr-1 sm:pr-2 pt-2 pb-3
                         flex-1 min-h-0 w-full overflow-hidden">
@@ -418,6 +423,16 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
         currentUserId={user?.id ?? user?._id ?? null}
         onClose={() => setShowAgentSettings(false)}
         onSaved={() => window.dispatchEvent(new CustomEvent('nexcollab:threads-changed'))}
+      />
+      <MyCardsModal
+        open={showMyCards}
+        onClose={() => setShowMyCards(false)}
+        onPickCard={(item) => {
+          const proj = (s.projects || []).find((p) => p.id === item.project_id);
+          if (proj) s.pickProject(proj.id);
+          setOpenThreadId(item.id);
+          s.setActiveTab?.('all');
+        }}
       />
       <ProjectSettingsModal
         open={!!settingsProject}

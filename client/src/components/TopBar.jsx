@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import ThemeToggle from './ThemeToggle.jsx';
 
-export default function TopBar({ user, projectName, onLogout, onProfileClick, onAgentSettingsClick }) {
+export default function TopBar({ user, projectName, onLogout, onProfileClick, onAgentSettingsClick, onMyCardsClick, myCardsCount = 0 }) {
   async function logout() {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
     onLogout();
@@ -47,6 +47,17 @@ export default function TopBar({ user, projectName, onLogout, onProfileClick, on
             style={{ background: user.color + '22', color: user.color, border: `1px solid ${user.color}55` }}>
             {user.avatar_letter}
           </button>
+          {onMyCardsClick && (
+            <button
+              onClick={onMyCardsClick}
+              title="My cards (cross-project inbox)"
+              className="text-[11px] theme-muted hover:opacity-80 px-1.5 relative"
+            >📥{myCardsCount > 0 && (
+              <span className="ml-1 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[9px] font-semibold bg-[color:var(--accent)] text-white">
+                {myCardsCount > 99 ? '99+' : myCardsCount}
+              </span>
+            )}</button>
+          )}
           {onAgentSettingsClick && (
             <button
               onClick={onAgentSettingsClick}
