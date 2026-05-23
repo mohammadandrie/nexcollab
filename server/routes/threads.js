@@ -823,6 +823,30 @@ router.get('/projects/:id/board', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /api/threads/:id/mention/:agentId — manual one-shot agent
+// reply (escape hatch). Determines if the agent is the current-stage
+// agent (full stance allowed) or cross-stage (NOTE/ASK only).
+router.post('/threads/:id/mention/:agentId', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const agentId = parseInt(req.params.agentId, 10);
+    const t = await cT().findOne({ _id: id });
+    if (!t) return res.status(404).json({ detail: 'thread_not_found' });
+    const member = await cPM().findOne({ project_id: t.project_id, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    const { runAgentTurn } = await import('../agentMessage.js');
+    const stageRolesByStage = { backlog:['pm'], open:['pm'], uiux:['ux','pm'],
+      dev:['dev'], qa:['qa'], pcheck:['pm'], done:[] };
+    const { cA: agents } = await import('../db.js');
+    const agent = await agents().findOne({ _id: agentId });
+    if (!agent) return res.status(404).json({ detail: 'agent_not_found' });
+    const stageRoles = stageRolesByStage[t.stage || 'backlog'] || [];
+    const isStageAgent = stageRoles.includes(agent.role);
+    const ev = await runAgentTurn({ threadId: id, agentId, isStageAgent });
+    res.json({ ok: true, event: ev, isStageAgent });
+  } catch (e) { next(e); }
+});
+
 // POST /api/threads/:id/run — trigger agent discussion loop until DEAL or
 // STUCK. Kicks off in background and returns immediately so the request
 // doesn't block on multiple LLM calls. Client polls thread for new events.
