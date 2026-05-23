@@ -19,11 +19,16 @@ function fmtEvent(ev, userMap, agentMap) {
   return `[${who}] ${ev.content || ''}`;
 }
 
-export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUser = null, replyToEventId = null }) {
+export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUser = null, replyToEventId = null, onProgress = null }) {
   const thread = await cT().findOne({ _id: threadId });
   if (!thread) throw new Error('thread_not_found');
   const agent = await cA().findOne({ _id: agentId });
   if (!agent) throw new Error('agent_not_found');
+  // Emit thinking placeholder immediately so SSE consumers can render
+  // an "Agent X is thinking..." bubble before the LLM call settles.
+  if (onProgress) {
+    try { onProgress({ kind: 'thinking', agent }); } catch {}
+  }
 
   // Hydrate authors so transcript is readable.
   const events = (thread.events || []).filter((e) => e.kind === 'comment' || e.kind === 'create');
@@ -116,5 +121,8 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
     { _id: threadId },
     { $push: { events: ev }, $set: { updated_at: ts } },
   );
+  if (onProgress) {
+    try { onProgress({ kind: 'completed', agent, event: ev }); } catch {}
+  }
   return ev;
 }
