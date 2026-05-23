@@ -22,6 +22,12 @@ export default function ChatComposer({
     ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
   }, [text]);
 
+  // When user clicks Reply on a bubble, replyingTo flips to truthy.
+  // Auto-focus the composer so they can type without an extra click.
+  useEffect(() => {
+    if (replyingTo) taRef.current?.focus();
+  }, [replyingTo?.id]);
+
   // Detect "@partial" immediately before the caret. Returns null if none.
   function detectMention(value, caret) {
     const before = value.slice(0, caret);

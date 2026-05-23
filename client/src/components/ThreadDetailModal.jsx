@@ -39,6 +39,9 @@ export default function ThreadDetailModal({
   const [descUploading, setDescUploading] = useState(false);
   const [descUpErr, setDescUpErr] = useState('');
   const [agents, setAgents] = useState([]);
+  const scrollRef = useRef(null);
+  const [newMsgPill, setNewMsgPill] = useState(false);
+  const lastSeenIdRef = useRef(0);
   // Custom confirm modal state — replaces window.confirm. `pending` holds
   // {title, description, confirmLabel, variant, run} where run() executes
   // the action when user clicks Confirm. Closing/cancel just clears it.
@@ -194,8 +197,32 @@ export default function ThreadDetailModal({
     setThread(null);
     setErr('');
     setReplyTo(null);
+    lastSeenIdRef.current = 0;
+    setNewMsgPill(false);
     refetch();
   }, [threadId]);
+
+  // Auto-scroll to latest comment when thread loads or events grow.
+  // If new message arrived from someone else while user scrolled up,
+  // surface a pill at top instead of yanking scroll position.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !thread) return;
+    const comments = (thread.events || []).filter((e) => e.kind === 'comment');
+    if (comments.length === 0) return;
+    const last = comments[comments.length - 1];
+    const lastId = last.event_id;
+    const isNumId = typeof lastId === 'number';
+    const wasNew = isNumId && lastSeenIdRef.current && lastId > lastSeenIdRef.current;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    const fromMe = last.actor_id === currentUserId;
+    if (lastSeenIdRef.current === 0 || !wasNew || nearBottom || fromMe) {
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    } else {
+      setNewMsgPill(true);
+    }
+    if (isNumId) lastSeenIdRef.current = lastId;
+  }, [thread?.events?.length, threadId, currentUserId]);
 
   // Fetch agents once so MentionAutocomplete can include them in the @ list.
   useEffect(() => {
@@ -666,7 +693,24 @@ export default function ThreadDetailModal({
                   ({(thread.events || []).filter((e) => e.kind === 'comment').length})
                 </span>
               </div>
-              <div className="scrollbar overflow-y-auto flex-1 px-3 md:px-4 py-3 space-y-3">
+              <div ref={scrollRef} className="scrollbar overflow-y-auto flex-1 px-3 md:px-4 py-3 space-y-3"
+                   onScroll={() => {
+                     const el = scrollRef.current;
+                     if (!el) return;
+                     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+                     if (nearBottom && newMsgPill) setNewMsgPill(false);
+                   }}>
+                {newMsgPill && (
+                  <button onClick={() => {
+                    const el = scrollRef.current;
+                    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                    setNewMsgPill(false);
+                  }} className="sticky top-1 z-10 self-center mx-auto block
+                                text-[11px] px-3 py-1 rounded-full
+                                bg-violet-600 hover:bg-violet-500 text-white shadow-lg">
+                    ↓ New message
+                  </button>
+                )}
                 {(() => {
                   const comments = (thread.events || []).filter(
                     (e) => e.kind === 'comment',
