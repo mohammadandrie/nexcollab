@@ -4,8 +4,9 @@
 // post-seed, but kept as a defensive path).
 import { cA } from './db.js';
 import { buildSystemPrompt } from './llm.js';
+import { buildThreadBundle } from './buildThreadBundle.js';
 
-export async function buildPrivatePrompt(user, project) {
+export async function buildPrivatePrompt(user, project, linkedThreadId = null) {
   const projectName = project?.name || 'Nexcollab';
   const projectDesc = project?.description || '';
   const agent = await cA().findOne({ owner_user_id: user._id });
@@ -13,7 +14,7 @@ export async function buildPrivatePrompt(user, project) {
     return buildSystemPrompt(user.name, user.role, projectName, projectDesc);
   }
   // Prepend persona, then context about who's talking + project.
-  return [
+  const base = [
     agent.system_prompt,
     '',
     `You are now in a 1:1 private chat with ${user.name} (${user.role}).`,
@@ -27,4 +28,7 @@ export async function buildPrivatePrompt(user, project) {
     `Note: in private chat there is NO stance tag and NO thread`,
     `discussion protocol. Just have a normal conversation.`,
   ].filter((x) => x !== null).join('\n');
+  if (linkedThreadId == null) return base;
+  const bundle = await buildThreadBundle(linkedThreadId);
+  return bundle ? `${base}\n${bundle}` : base;
 }
