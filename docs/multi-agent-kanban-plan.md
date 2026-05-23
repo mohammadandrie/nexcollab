@@ -408,14 +408,17 @@ Status: belum mulai. Update checkbox + commit SHA tiap task done.
 
 ### Fase 2 — Kanban UI read-only
 
-- [ ] `KanbanBoard.jsx` + `ThreadCard.jsx` (7 kolom, render cT.stage)
-- [ ] Endpoint `GET /api/projects/:id/board`
-- [ ] Drag manual untuk PM (PATCH stage, optimistic concurrency)
-- [ ] Sidebar update: Threads list jadi filter "my cards"
-- [ ] `AgentSettingsModal.jsx` — edit name/photo/color/prompt (self-only)
-- [ ] Endpoint `GET /api/agents` + `PATCH /api/agents/:id`
-- [ ] Smoke test: drag card, cek persist + filter sidebar
-- [ ] Fase 2 done — commit, tag, update tracker
+- [x] `KanbanBoard.jsx` + `ThreadCard.jsx` (7 kolom, render cT.stage)  · 9bcea1b · 08ad1cf
+- [x] Endpoint `GET /api/projects/:id/board`  · 709f0c0
+- [x] Drag manual untuk PM (PATCH stage, optimistic concurrency)  · 26113b4 · 6d027c7 · 2e1e810 · 48cd3b9
+- [ ] Sidebar update: Threads list jadi filter "my cards"  *(deferred — Threads list masih ada di sidebar, belum jadi filter; lanjut di Fase 3 atau iterasi UI berikutnya)*
+- [x] `AgentSettingsModal.jsx` — edit name/photo/color/prompt (self-only)  · f1e7090
+- [x] Endpoint `GET /api/agents` + `PATCH /api/agents/:id`  · a9f7cd2 · 43d3f71
+- [x] Wire 🤖 Agent button di TopBar  · ece5a48
+- [x] Smoke test: drag card, cek persist + render visual
+      → board render 7 kolom, 6 cards di Open, drag PM open→uiux ok (version 1),
+        modal Agent settings load Pimpi persona dengan field lengkap
+- [x] Fase 2 done — commit, tag, update tracker
 
 ### Fase 3 — Approval + auto-handoff
 
