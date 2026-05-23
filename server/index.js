@@ -12,6 +12,9 @@ import projectsRouter from './routes/projects.js';
 import chatRouter from './routes/chat.js';
 import githubRouter from './routes/github.js';
 import uploadRouter from './routes/upload.js';
+import typingRouter from './routes/typing.js';
+import threadsRouter from './routes/threads.js';
+import chatViewsRouter from './routes/chat_views.js';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -24,6 +27,9 @@ app.use('/api', projectsRouter);
 app.use('/api', chatRouter);
 app.use('/api', githubRouter);
 app.use('/api', uploadRouter);
+app.use('/api', typingRouter);
+app.use('/api', threadsRouter);
+app.use('/api', chatViewsRouter);
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '7d', immutable: true }));
 
 // React client (built by Vite into client/dist).
@@ -47,7 +53,14 @@ app.use((err, _req, res, _next) => {
 (async () => {
   await connect();
   await seed();
-  app.listen(PORT, HOST, () => {
+  const server = app.listen(PORT, HOST, () => {
     console.log(`nexcollab listening http://${HOST}:${PORT}`);
   });
+  // Long-lived SSE streams (LLM replies) need request/header timeouts that
+  // exceed the upstream LLM budget (~10 min). Defaults of 5 min headers /
+  // ~5 min request would kill a slow thinking-model reply mid-stream.
+  // keepAlive must be > headersTimeout to satisfy Node's invariant.
+  server.requestTimeout    = 15 * 60 * 1000;  // 15 min — full request budget
+  server.headersTimeout    = 12 * 60 * 1000;  // 12 min — must be > LLM streaming budget
+  server.keepAliveTimeout  = 13 * 60 * 1000;  // 13 min — > headersTimeout (Node invariant)
 })().catch((err) => { console.error(err); process.exit(1); });

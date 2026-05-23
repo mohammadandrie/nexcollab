@@ -27,6 +27,11 @@ async function ensureIndexes(db) {
   await db.collection('chats').createIndex(
     { project_id: 1, kind: 1, owner_id: 1 }, { unique: true });
   await db.collection('messages').createIndex({ chat_id: 1, _id: 1 });
+  await db.collection('threads').createIndex({ project_id: 1, status: 1, updated_at: -1 });
+  await db.collection('threads').createIndex({ current_assignee_id: 1, status: 1 });
+  await db.collection('chat_views').createIndex(
+    { chat_id: 1, user_id: 1 }, { unique: true });
+  await db.collection('chat_views').createIndex({ user_id: 1 });
 }
 
 // Auto-incrementing numeric IDs (frontend expects integers).
@@ -46,3 +51,5 @@ export const cP = () => getDb().collection('projects');
 export const cPM = () => getDb().collection('project_members');
 export const cC = () => getDb().collection('chats');
 export const cM = () => getDb().collection('messages');
+export const cT = () => getDb().collection('threads');
+export const cCV = () => getDb().collection('chat_views');
