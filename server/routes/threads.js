@@ -129,6 +129,10 @@ router.post('/threads', requireAuth, async (req, res, next) => {
           }))
       : [];
     const category = String(req.body?.category || 'Other').trim().slice(0, 60) || 'Other';
+    const stageReq = String(req.body?.stage || '').trim().toLowerCase();
+    const stage = VALID_STAGES.has(stageReq) ? stageReq : 'open';
+    const assigneeReq = parseInt(req.body?.assignee_id, 10);
+    const assigneeId = Number.isFinite(assigneeReq) ? assigneeReq : null;
     if (!projectId || !title) return res.status(400).json({ detail: 'missing_fields' });
 
     const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
@@ -147,9 +151,10 @@ router.post('/threads', requireAuth, async (req, res, next) => {
       _id, project_id: projectId, title, description, description_attachments,
       category,
       status: 'open',
+      stage,
       originator_id: req.user._id,
       source_msg_id: sourceOk,
-      current_assignee_id: null,
+      current_assignee_id: assigneeId,
       events: [{ kind: 'create', actor_id: req.user._id, ts: now }],
       version: 0,
       created_at: now, updated_at: now, closed_at: null,
