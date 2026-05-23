@@ -39,6 +39,7 @@ async function migrate() {
           description_history: [],
           deal_state: { status: 'idle', last_proposal: 0, agreed_by: [] },
           agent_participants: [],
+          version: 0,
         },
       },
     );

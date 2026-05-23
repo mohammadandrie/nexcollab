@@ -694,7 +694,7 @@ router.post('/threads/:id/approve', requireAuth, async (req, res, next) => {
     };
     const lockKey = `description_locks.${stage}`;
     await cT().updateOne(
-      { _id: id, version: t.version || 0 },
+      { _id: id },
       {
         $push: { approvals: newApproval, description_history: histEntry },
         $set: {
