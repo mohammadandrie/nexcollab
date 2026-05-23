@@ -422,13 +422,19 @@ Status: belum mulai. Update checkbox + commit SHA tiap task done.
 
 ### Fase 3 — Approval + auto-handoff
 
-- [ ] `ApprovalFooter.jsx` (tombol approve per stage)
-- [ ] Endpoint `POST /api/threads/:id/approve`
-- [ ] Stage transition logic + snapshot ke `description_locks`
-- [ ] Optimistic concurrency via `if_version`
-- [ ] Auto-greet handoff note dari agent role baru
-- [ ] Smoke test: approve UI/UX → card pindah ke Dev + lock snapshot
-- [ ] Fase 3 done — commit, tag, update tracker
+- [x] `ApprovalFooter.jsx` (tombol approve per stage)  · 51361ac
+- [x] Endpoint `POST /api/threads/:id/approve`  · 94e3a27
+- [x] Stage transition logic + snapshot ke `description_locks`  · 94e3a27
+- [x] Optimistic concurrency via `if_version`  · 94e3a27
+- [ ] Auto-greet handoff note dari agent role baru  *(deferred ke Fase 4 — butuh agentRunner.js untuk generate greet)*
+- [x] Expose stage/approvals/locks di GET /threads/:id  · 5f985ee
+- [x] Wire ApprovalFooter ke ThreadDetailModal  · 2dc8428 · eec7c75
+- [x] Smoke test: approve UI/UX → card pindah ke Dev + lock snapshot
+      → uji 1: Hamfik UX approve thread #8 uiux→dev (version 2) ok
+      → uji 2: Tyo PM approve thread #5 open→uiux (version 1) ok
+      → footer render: "Stage: Open (PM) · Approve 0/1 · Menunggu PM"
+        untuk DEV viewer, "✓ Approve PM" untuk PM viewer
+- [x] Fase 3 done — commit, tag, update tracker
 
 ### Fase 4 — Agent diskusi + DEAL detection
 
