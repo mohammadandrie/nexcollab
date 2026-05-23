@@ -49,6 +49,8 @@ export async function streamCommentDispatch({
           photo_url: p.agent.photo_url || null,
         },
       });
+    } else if (p.kind === 'delta') {
+      emit('delta', { agent_id: p.agent._id, delta: p.delta });
     } else if (p.kind === 'completed') {
       // Hydrate agent metadata onto the event so client can render the
       // bubble identical to GET /threads/:id (CommentBubble reads ev.agent).
