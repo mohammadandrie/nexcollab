@@ -438,18 +438,26 @@ Status: belum mulai. Update checkbox + commit SHA tiap task done.
 
 ### Fase 4 — Agent diskusi + DEAL detection
 
-- [ ] `server/agents.js` — definisi 5 persona + lookup
-- [ ] `server/stanceParser.js` — parse 5 stance tag, fallback NOTE
-- [ ] `server/dealDetector.js` — cek DEAL state per thread
-- [ ] `server/agentRunner.js` — loop diskusi sampai DEAL/STUCK
-- [ ] Endpoint `POST /api/threads/:id/run` (trigger loop)
-- [ ] Endpoint `POST /api/threads/:id/mention` (manual mention)
-- [ ] @mention cross-stage rule (NOTE/ASK only)
-- [ ] Auto-update description on DEAL
-- [ ] Stuck detector + UI banner
-- [ ] SSE indicator integration
-- [ ] Smoke test: trigger diskusi end-to-end, verify DEAL detection
-- [ ] Fase 4 done — commit, tag, update tracker
+- [x] `server/agents.js` — definisi 5 persona + lookup  *(implemented as agentPrompts.js + cAgents collection di Fase 1)*
+- [x] `server/stanceParser.js` — parse 5 stance tag, fallback NOTE  · 64 lines
+- [x] `server/dealDetector.js` — cek DEAL state per thread  · 70 lines
+- [x] `server/agentRunner.js` — loop diskusi sampai DEAL/STUCK  · 87 lines
+- [x] `server/agentMessage.js` — single agent turn + stance enforcement  · 78 lines
+- [x] `server/agentDealSummary.js` — auto-rewrite description on DEAL  · 61 lines
+- [x] Endpoint `POST /api/threads/:id/run` (trigger loop)  · fire-and-forget bg
+- [ ] Endpoint `POST /api/threads/:id/mention` (manual mention)  *(deferred — /run + cross-stage rule sudah cukup untuk MVP, mention sebagai escape hatch belum dibutuhkan)*
+- [x] @mention cross-stage rule (NOTE/ASK only)  *(enforced di agentMessage.js via isStanceAllowed — demote ke NOTE kalau cross-stage agent pakai PROPOSE/AGREE)*
+- [x] Auto-update description on DEAL  *(rewriteDescriptionOnDeal di agentRunner DEAL branch)*
+- [x] Stuck detector + UI banner  *(detectStuck di dealDetector + deal_state.status='stuck' badge di ApprovalFooter)*
+- [ ] SSE indicator integration  *(deferred — polling 10x@3s sudah render reply tanpa manual refresh; SSE jadi optimisasi Fase 5)*
+- [x] 🤖 Run agents button + deal-state pill di ApprovalFooter
+- [x] Smoke test: trigger diskusi end-to-end, verify DEAL detection
+      → uji 1: thread #4 (open/PM) → DEAL #1 (Pimpi propose+agree, single-agent stage)
+      → uji 2: thread #5 (open/PM) → DEAL #1 (3 events: 2 ASK + 1 PROPOSE)
+      → uji 3: thread #10 (pcheck/PM) → DEAL + description auto-rewritten ke
+        spec final terstruktur (#1 Overview, #2 Goals, #3 Pages, #4 Notification,
+        wireframe ASCII), prev_content tersimpan di description_history
+- [x] Fase 4 done — commit, tag, update tracker
 
 ## Blocker log
 
