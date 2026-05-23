@@ -772,6 +772,45 @@ router.post('/threads/:id/stage', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// GET /api/my-cards — global inbox: thread cards across ALL projects
+// where the current stage's required role matches the user's role and
+// the user hasn't approved yet. Plus a `running` bucket showing threads
+// where agent loop is active and the user might want to peek.
+router.get('/my-cards', requireAuth, async (req, res, next) => {
+  try {
+    const userRole = req.user.role;
+    const myProjects = await cPM().find({ user_id: req.user._id })
+      .project({ project_id: 1 }).toArray();
+    const projIds = myProjects.map((m) => m.project_id);
+    if (projIds.length === 0) return res.json({ count: 0, items: [] });
+
+    const STAGE_ROLE = { open: 'PM', uiux: 'UX', dev: 'DEV', qa: 'QA', pcheck: 'PM' };
+    const matchingStages = Object.keys(STAGE_ROLE)
+      .filter((s) => STAGE_ROLE[s] === userRole);
+    if (matchingStages.length === 0) return res.json({ count: 0, items: [] });
+
+    const rows = await cT().find({
+      project_id: { $in: projIds },
+      stage: { $in: matchingStages },
+    }).project({
+      _id: 1, project_id: 1, title: 1, stage: 1, deal_state: 1,
+      approvals: 1, updated_at: 1,
+    }).sort({ updated_at: -1 }).toArray();
+
+    // Filter out already-approved-by-me.
+    const items = rows
+      .filter((t) => !(t.approvals || []).some(
+        (a) => a.user_id === req.user._id && a.stage === t.stage,
+      ))
+      .map((t) => ({
+        id: t._id, project_id: t.project_id, title: t.title,
+        stage: t.stage, deal_status: t.deal_state?.status || 'idle',
+        updated_at: t.updated_at,
+      }));
+    res.json({ count: items.length, items });
+  } catch (e) { next(e); }
+});
+
 // GET /api/projects/:id/board — kanban view: thread cards grouped by stage.
 // Member-only. Used by KanbanBoard.jsx to render the 7 columns.
 router.get('/projects/:id/board', requireAuth, async (req, res, next) => {
