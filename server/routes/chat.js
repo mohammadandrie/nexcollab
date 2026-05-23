@@ -111,7 +111,13 @@ router.get('/chats/:id/messages', requireAuth, async (req, res, next) => {
         pinned_by: m.pinned_by ?? null,
       };
     });
-    res.json({ messages });
+    res.json({
+      messages,
+      chat: {
+        id: chatId, kind: chat.kind, project_id: chat.project_id ?? null,
+        linked_thread_id: chat.linked_thread_id ?? null,
+      },
+    });
   } catch (e) { next(e); }
 });
 
