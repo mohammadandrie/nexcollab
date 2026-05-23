@@ -37,6 +37,7 @@ export default function ThreadDetailModal({
   const [replyTo, setReplyTo] = useState(null); // {event_id, author, content}
   const [descUploading, setDescUploading] = useState(false);
   const [descUpErr, setDescUpErr] = useState('');
+  const [agents, setAgents] = useState([]);
   // Custom confirm modal state — replaces window.confirm. `pending` holds
   // {title, description, confirmLabel, variant, run} where run() executes
   // the action when user clicks Confirm. Closing/cancel just clears it.
@@ -152,13 +153,21 @@ export default function ThreadDetailModal({
     }
   }
 
-  // Mention user list = project members + virtual @hermes entry.
+  // Mention user list = project members + agents + virtual @hermes entry.
   const mentionUsers = (() => {
     const out = members.map((m) => ({
       username: m.username || String(m.name || '').toLowerCase().replace(/\s+/g, ''),
       name: m.name || '—',
       photo_url: m.photo_url, color: m.color, avatar_letter: m.avatar_letter,
     }));
+    for (const a of agents) {
+      out.push({
+        username: String(a.name || '').toLowerCase(),
+        name: a.name,
+        photo_url: a.photo_url, color: a.color,
+        avatar_letter: (a.name || '?')[0]?.toUpperCase() || '🤖',
+      });
+    }
     out.push({
       username: 'hermes', name: 'Hermes',
       photo_url: null, color: '#818cf8', avatar_letter: '✦',
@@ -186,6 +195,11 @@ export default function ThreadDetailModal({
     setReplyTo(null);
     refetch();
   }, [threadId]);
+
+  // Fetch agents once so MentionAutocomplete can include them in the @ list.
+  useEffect(() => {
+    api('/api/agents').then(({ agents }) => setAgents(agents || [])).catch(() => {});
+  }, []);
 
   // ChatComposer.onSend signature: (text, attachments, replyId-from-bubble).
   // We override replyId via our own replyTo state instead — bubble-level reply
