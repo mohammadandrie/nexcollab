@@ -80,7 +80,7 @@ export default function CommentBubble({
   // AI bubble: prefer hydrated agent persona over generic Hermes default.
   const aiAuthor = ev.agent
     ? {
-        name: ev.agent.name || 'Agent',
+        name: `Agent ${ev.agent.name || ''}`.trim(),
         color: ev.agent.color || '#818cf8',
         letter: (ev.agent.name || '?')[0]?.toUpperCase() || '✦',
         role: (ev.agent.role || '').toUpperCase(),
