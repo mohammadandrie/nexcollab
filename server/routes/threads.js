@@ -611,4 +611,55 @@ router.delete('/threads/:id/events/:eventId', requireAuth, async (req, res, next
   } catch (e) { next(e); }
 });
 
+// GET /api/projects/:id/board — kanban view: thread cards grouped by stage.
+// Member-only. Used by KanbanBoard.jsx to render the 7 columns.
+router.get('/projects/:id/board', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(projectId)) return res.status(400).json({ detail: 'bad_id' });
+    const member = await cPM().findOne({ project_id: projectId, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+
+    const rows = await cT().find({ project_id: projectId })
+      .project({
+        _id: 1, title: 1, description: 1, status: 1, stage: 1,
+        category: 1, current_assignee_id: 1, created_by: 1,
+        deal_state: 1, version: 1, updated_at: 1, created_at: 1,
+      })
+      .sort({ updated_at: -1 })
+      .toArray();
+
+    // Hydrate names for assignee + creator (small set, single query).
+    const userIds = new Set();
+    for (const r of rows) {
+      if (r.current_assignee_id) userIds.add(r.current_assignee_id);
+      if (r.created_by) userIds.add(r.created_by);
+    }
+    const users = userIds.size ? await cU().find(
+      { _id: { $in: [...userIds] } },
+      { projection: { _id: 1, name: 1, role: 1, color: 1, photo_url: 1, avatar_letter: 1 } },
+    ).toArray() : [];
+    const uMap = Object.fromEntries(users.map((u) => [u._id, u]));
+
+    const STAGES = ['backlog', 'open', 'uiux', 'dev', 'qa', 'pcheck', 'done'];
+    const columns = Object.fromEntries(STAGES.map((s) => [s, []]));
+    for (const r of rows) {
+      const stage = STAGES.includes(r.stage) ? r.stage : 'backlog';
+      columns[stage].push({
+        id: r._id,
+        title: r.title,
+        category: r.category ?? null,
+        stage,
+        legacy_status: r.status ?? null,
+        version: r.version ?? 0,
+        deal_status: r.deal_state?.status ?? 'idle',
+        assignee: r.current_assignee_id ? uMap[r.current_assignee_id] ?? null : null,
+        creator: r.created_by ? uMap[r.created_by] ?? null : null,
+        updated_at: r.updated_at,
+      });
+    }
+    res.json({ project_id: projectId, stages: STAGES, columns });
+  } catch (e) { next(e); }
+});
+
 export default router;
