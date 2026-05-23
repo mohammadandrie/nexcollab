@@ -6,6 +6,7 @@ import Avatar from './Avatar.jsx';
 import CategoryPicker from './CategoryPicker.jsx';
 import CommentBubble from './CommentBubble.jsx';
 import StageBar from './StageBar.jsx';
+import { consumeCommentStream } from './commentStream.js';
 import ChatComposer from './ChatComposer.jsx';
 import Attachment from './Attachment.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
@@ -210,20 +211,35 @@ export default function ThreadDetailModal({
     const atts = Array.isArray(attachments) ? attachments : [];
     if (!c && atts.length === 0) return;
     setBusy(true); setErr('');
+    const tmpKey = 'tmp-user-' + Date.now();
+    // Optimistic ghost: render immediately so user sees their bubble.
+    setThread((prev) => prev ? {
+      ...prev,
+      events: [...(prev.events || []), {
+        _ghost_key: tmpKey, kind: 'comment',
+        event_id: tmpKey, actor_id: currentUserId,
+        actor: { id: currentUserId, name: currentUser?.name,
+                 color: currentUser?.color, role: currentUser?.role },
+        ts: new Date(), content: c, attachments: atts,
+        reply_to_event_id: replyTo?.event_id ?? null,
+      }],
+    } : prev);
+    setReplyTo(null);
+    const setEvents = (updater) => setThread((prev) => prev ? {
+      ...prev, events: typeof updater === 'function'
+        ? updater(prev.events || [])
+        : updater,
+    } : prev);
     try {
-      await api(`/api/threads/${threadId}/comment`, {
-        method: 'POST',
-        body: JSON.stringify({
-          content: c,
-          attachments: atts,
-          reply_to_event_id: replyTo?.event_id ?? null,
-        }),
-      });
-      setReplyTo(null);
-      await refetch();
+      await consumeCommentStream(threadId, {
+        content: c, attachments: atts,
+        reply_to_event_id: replyTo?.event_id ?? null,
+      }, setEvents, tmpKey);
       onChanged?.();
     } catch (e) {
       setErr(e.message || String(e));
+      // Drop the ghost so re-attempt doesn't double-post.
+      setEvents((prev) => prev.filter((ev) => ev._ghost_key !== tmpKey));
     } finally { setBusy(false); }
   }
 
