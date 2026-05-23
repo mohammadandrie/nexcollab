@@ -477,9 +477,9 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
       <MyCardsModal
         open={showMyCards}
         onClose={() => setShowMyCards(false)}
-        onPickCard={(item) => {
+        onPickCard={async (item) => {
           const proj = (s.projects || []).find((p) => p.id === item.project_id);
-          if (proj) s.pickProject(proj.id);
+          if (proj) await s.switchProject(proj.id);
           setOpenThreadId(item.id);
           s.setActiveTab?.('all');
         }}
