@@ -931,4 +931,67 @@ router.post('/threads/:id/run', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /api/threads/:id/comment/stream — same as /comment but emits SSE
+// lifecycle events so the client can render thinking/completed bubbles
+// staged per agent turn instead of waiting for the full chain.
+router.post('/threads/:id/comment/stream', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const t = await loadThreadOr403(id, req.user, res);
+    if (!t) return;
+    if (t.status === 'done') return res.status(409).json({ detail: 'thread_closed' });
+    const content = String(req.body?.content || '').trim().slice(0, 4000);
+    const attachments = Array.isArray(req.body?.attachments)
+      ? req.body.attachments
+          .filter((a) => a && typeof a.url === 'string' && a.url.startsWith('/uploads/'))
+          .slice(0, 8)
+          .map((a) => ({
+            url: a.url, name: String(a.name || '').slice(0, 200),
+            mime: String(a.mime || ''), size: Number(a.size) || 0,
+          }))
+      : [];
+    if (!content && attachments.length === 0) {
+      return res.status(400).json({ detail: 'empty_comment' });
+    }
+    let replyToEventId = null;
+    if (req.body?.reply_to_event_id != null) {
+      const candidate = parseInt(req.body.reply_to_event_id, 10);
+      if (Number.isFinite(candidate)
+          && (t.events || []).some((e) => e.event_id === candidate)) {
+        replyToEventId = candidate;
+      }
+    }
+
+    // Open SSE response.
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.flushHeaders?.();
+    const emit = (type, data) => {
+      try {
+        if (res.writableEnded) return;
+        res.write(`event: ${type}\n`);
+        res.write(`data: ${JSON.stringify(data ?? {})}\n\n`);
+        if (typeof res.flush === 'function') res.flush();
+      } catch {}
+    };
+    const heartbeat = setInterval(() => emit('heartbeat', { ts: Date.now() }), 5000);
+
+    try {
+      const { streamCommentDispatch } = await import('../streamCommentDispatch.js');
+      await streamCommentDispatch({
+        threadId: id, user: req.user, content, attachments, replyToEventId, emit,
+      });
+    } catch (e) {
+      emit('error', { detail: 'server_error', message: String(e.message || e) });
+    } finally {
+      clearInterval(heartbeat);
+      res.end();
+    }
+  } catch (e) { next(e); }
+});
+
 export default router;
