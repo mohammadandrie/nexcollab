@@ -6,6 +6,7 @@ import Avatar from './Avatar.jsx';
 import CategoryPicker from './CategoryPicker.jsx';
 import CommentBubble from './CommentBubble.jsx';
 import ApprovalFooter from './ApprovalFooter.jsx';
+import MentionAgentBar from './MentionAgentBar.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import Attachment from './Attachment.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
@@ -680,6 +681,10 @@ export default function ThreadDetailModal({
                 {err && <div className="text-[11px] text-red-400 mt-1">{err}</div>}
               </div>
             </section>
+            <MentionAgentBar
+              thread={thread}
+              onMentioned={() => { refetch(); onChanged?.(); }}
+            />
             <ApprovalFooter
               thread={thread}
               currentUser={currentUser}
