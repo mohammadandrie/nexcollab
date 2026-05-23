@@ -611,6 +611,61 @@ router.delete('/threads/:id/events/:eventId', requireAuth, async (req, res, next
   } catch (e) { next(e); }
 });
 
+// POST /api/threads/:id/stage — manual stage move (drag from kanban).
+// PM-only for now; future: stage-owner approval gates this. Optimistic
+// concurrency via if_version. Records the move in description_history
+// for audit but does NOT mutate description text yet (that happens on
+// auto-DEAL in Fase 4).
+const VALID_STAGES = new Set(['backlog', 'open', 'uiux', 'dev', 'qa', 'pcheck', 'done']);
+
+router.post('/threads/:id/stage', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const t = await cT().findOne({ _id: id });
+    if (!t) return res.status(404).json({ detail: 'thread_not_found' });
+    const member = await cPM().findOne({ project_id: t.project_id, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    if (req.user.role !== 'PM') return res.status(403).json({ detail: 'pm_only' });
+
+    const next_stage = String(req.body?.stage || '').trim().toLowerCase();
+    if (!VALID_STAGES.has(next_stage)) return res.status(400).json({ detail: 'bad_stage' });
+
+    if (req.body?.if_version != null) {
+      const expected = parseInt(req.body.if_version, 10);
+      const actual = parseInt(t.version || 0, 10);
+      if (Number.isFinite(expected) && expected !== actual) {
+        return res.status(409).json({
+          detail: 'version_conflict',
+          server_version: actual, client_version: expected,
+        });
+      }
+    }
+
+    const prev_stage = t.stage || 'backlog';
+    if (prev_stage === next_stage) return res.json({ ok: true, stage: next_stage, unchanged: true });
+
+    const now = new Date();
+    const histEntry = {
+      version: (t.version || 0) + 1,
+      ts: now,
+      by_id: req.user._id,
+      by_kind: 'human',
+      source: 'manual_drag',
+      from_stage: prev_stage,
+      to_stage: next_stage,
+    };
+    await cT().updateOne(
+      { _id: id },
+      {
+        $set: { stage: next_stage, updated_at: now },
+        $inc: { version: 1 },
+        $push: { description_history: histEntry },
+      },
+    );
+    res.json({ ok: true, stage: next_stage, prev_stage, version: (t.version || 0) + 1 });
+  } catch (e) { next(e); }
+});
+
 // GET /api/projects/:id/board — kanban view: thread cards grouped by stage.
 // Member-only. Used by KanbanBoard.jsx to render the 7 columns.
 router.get('/projects/:id/board', requireAuth, async (req, res, next) => {
