@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import ThemeToggle from './ThemeToggle.jsx';
 
-export default function TopBar({ user, projectName, onLogout, onProfileClick }) {
+export default function TopBar({ user, projectName, onLogout, onProfileClick, onAgentSettingsClick }) {
   async function logout() {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
     onLogout();
@@ -47,6 +47,13 @@ export default function TopBar({ user, projectName, onLogout, onProfileClick }) 
             style={{ background: user.color + '22', color: user.color, border: `1px solid ${user.color}55` }}>
             {user.avatar_letter}
           </button>
+          {onAgentSettingsClick && (
+            <button
+              onClick={onAgentSettingsClick}
+              title="Agent settings"
+              className="text-[11px] theme-muted hover:opacity-80 px-1.5"
+            >🤖 Agent</button>
+          )}
           <button onClick={logout} className="text-[11px] theme-muted hover:opacity-80">
             Logout
           </button>
