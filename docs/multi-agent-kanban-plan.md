@@ -390,19 +390,21 @@ Status: belum mulai. Update checkbox + commit SHA tiap task done.
 
 ### Fase 1 — Schema + seed
 
-- [ ] Buat collection `cAgents` di db.js (helper + ensureIndex)
-- [ ] Migration: tambah field `stage`, `stage_owners`, `approvals`,
+- [x] Buat collection `cAgents` di db.js (helper + ensureIndex)  · a4199df
+- [x] Migration: tambah field `stage`, `stage_owners`, `approvals`,
       `description_locks`, `description_history`, `deal_state`,
-      `agent_participants` ke cT
+      `agent_participants` ke cT  · 4204cd0
 - [ ] Migration: tambah field `agent_id`, `role_at_post`,
-      `stance_tag`, `proposal_ref` ke cM
-- [ ] Backfill thread existing: `status` lama → `stage` baru
-      (open→open, assigned→stage role assignee, review→pcheck,
-      done→done)
-- [ ] Seed 5 persona default di cAgents (Pimpi/Hamka/Hardev/Chaldev/Andra)
-- [ ] Draft system prompt 5 persona (file `server/agentPrompts.js`)
-- [ ] Smoke test: query cAgents, cek 5 row + linkage ke owner_user_id
-- [ ] Fase 1 done — commit, tag, update tracker
+      `stance_tag`, `proposal_ref` ke cM  *(deferred ke Fase 4 saat
+      cM benar-benar di-pakai untuk discussion message)*
+- [x] Backfill thread existing: `status` lama → `stage` baru
+      (open→open, assigned→uiux, review→pcheck, done→done,
+      else→backlog)  · 4204cd0 · executed: 12 rows backfilled
+- [x] Seed 5 persona default di cAgents (Pimpi/Hamka/Hardev/Chaldev/Andra)  · 572678f
+- [x] Draft system prompt 5 persona (file `server/agentPrompts.js`)  · eaa634d
+- [x] Smoke test: query cAgents, cek 5 row + linkage ke owner_user_id
+      → 5/5 ok, threads by stage: open=6, uiux=3, pcheck=3
+- [x] Fase 1 done — commit, tag, update tracker
 
 ### Fase 2 — Kanban UI read-only
 
