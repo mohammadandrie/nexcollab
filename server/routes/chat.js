@@ -161,7 +161,7 @@ router.post('/chats/:id/messages', requireAuth, async (req, res, next) => {
       let sysPrompt;
       if (chat.kind === 'private') {
         const proj = await cP().findOne({ _id: chat.project_id });
-        sysPrompt = await buildPrivatePrompt(req.user, proj);
+        sysPrompt = await buildPrivatePrompt(req.user, proj, chat.linked_thread_id ?? null);
         // Inject live thread/task-board context so the agent can reason about
         // threads the user references ("the pin", "task assigned to me", etc.).
         sysPrompt += await buildThreadContext(chat.project_id, req.user._id);
@@ -507,7 +507,7 @@ router.post('/chats/:id/stream', requireAuth, async (req, res, next) => {
       let sys;
       if (chat.kind === 'private') {
         const proj = await cP().findOne({ _id: chat.project_id });
-        sys = await buildPrivatePrompt(req.user, proj);
+        sys = await buildPrivatePrompt(req.user, proj, chat.linked_thread_id ?? null);
         sys += await buildThreadContext(chat.project_id, req.user._id);
       } else {
         sys = buildGeneralPrompt(req.user.name, req.user.role);
