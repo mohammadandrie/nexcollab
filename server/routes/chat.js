@@ -4,6 +4,7 @@ import { cC, cM, cP, cU, cT, nextId } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { loadChatOr403 } from '../chat-auth.js';
 import { buildSystemPrompt, buildGeneralPrompt, buildChatAllPrompt, chatComplete, chatCompleteStream, compactHistory, encodeImagePart, isVisionMime, VISION_SYSTEM_NOTE } from '../llm.js';
+import { buildPrivatePrompt } from '../buildPrivatePrompt.js';
 import { captureUrl } from '../screenshot.js';
 
 const router = Router();
@@ -160,11 +161,8 @@ router.post('/chats/:id/messages', requireAuth, async (req, res, next) => {
       let sysPrompt;
       if (chat.kind === 'private') {
         const proj = await cP().findOne({ _id: chat.project_id });
-        sysPrompt = buildSystemPrompt(
-          req.user.name, req.user.role,
-          proj?.name || 'Nexcollab', proj?.description || '',
-        );
-        // Inject live thread/task-board context so Hermes can reason about
+        sysPrompt = await buildPrivatePrompt(req.user, proj);
+        // Inject live thread/task-board context so the agent can reason about
         // threads the user references ("the pin", "task assigned to me", etc.).
         sysPrompt += await buildThreadContext(chat.project_id, req.user._id);
       } else {
@@ -509,8 +507,7 @@ router.post('/chats/:id/stream', requireAuth, async (req, res, next) => {
       let sys;
       if (chat.kind === 'private') {
         const proj = await cP().findOne({ _id: chat.project_id });
-        sys = buildSystemPrompt(req.user.name, req.user.role,
-          proj?.name || 'Nexcollab', proj?.description || '');
+        sys = await buildPrivatePrompt(req.user, proj);
         sys += await buildThreadContext(chat.project_id, req.user._id);
       } else {
         sys = buildGeneralPrompt(req.user.name, req.user.role);
