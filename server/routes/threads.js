@@ -1,7 +1,7 @@
 // Threads — cross-role work units in Chat All.
 // Stage 1: create from private message, list, detail, comment.
 import { Router } from 'express';
-import { cT, cP, cPM, cU, cM, nextId } from '../db.js';
+import { cT, cP, cPM, cU, cM, cA, nextId } from '../db.js';
 import { requireAuth } from '../auth.js';
 import {
   buildChatAllPrompt, chatComplete, encodeImagePart,
@@ -285,13 +285,24 @@ router.post('/threads/:id/comment', requireAuth, async (req, res, next) => {
       { $push: { events: ev }, $set: { updated_at: ev.ts } },
     );
 
-    // @Hermes mention → fire-and-respond with another comment event.
+    // @AgentName mention → dispatch to runAgentTurn for that persona.
+    // Falls back to legacy replyAsHermes only when @hermes is the literal token.
     let hermesEvent = null;
-    if (/(^|\s)@hermes\b/i.test(content)) {
-      try {
-        hermesEvent = await replyAsHermes(id, req.user);
-      } catch (e) {
-        console.warn('[threads] hermes reply failed', e.message);
+    const mentionTokens = [...content.matchAll(/@(\w+)/g)].map((m) => m[1].toLowerCase());
+    if (mentionTokens.length > 0) {
+      const agentList = await cA().find({}).toArray();
+      const target = agentList.find((a) => mentionTokens.includes(String(a.name || '').toLowerCase()));
+      if (target) {
+        try {
+          const { runAgentTurn } = await import('../agentMessage.js');
+          const STAGE_ROLES = { backlog:['pm'], open:['pm'], uiux:['ux','pm'],
+            dev:['dev'], qa:['qa'], pcheck:['pm'], done:[] };
+          const isStageAgent = (STAGE_ROLES[t.stage || 'backlog'] || []).includes(target.role);
+          hermesEvent = await runAgentTurn({ threadId: id, agentId: target._id, isStageAgent });
+        } catch (e) { console.warn('[threads] agent reply failed', e.message); }
+      } else if (mentionTokens.includes('hermes')) {
+        try { hermesEvent = await replyAsHermes(id, req.user); }
+        catch (e) { console.warn('[threads] hermes reply failed', e.message); }
       }
     }
     res.json({ ok: true, event: ev, hermes_event: hermesEvent });
