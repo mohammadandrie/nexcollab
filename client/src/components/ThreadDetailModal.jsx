@@ -196,6 +196,28 @@ export default function ThreadDetailModal({
     } finally { setLoading(false); }
   }
 
+  // Quiet poll every 4s while modal open. Merges server events with any
+  // in-flight ghost bubbles (_ghost_key set) so optimistic state survives.
+  useEffect(() => {
+    if (!threadId) return;
+    const tick = async () => {
+      try {
+        const { thread: fresh } = await api(`/api/threads/${threadId}`);
+        setThread((prev) => {
+          if (!prev) return fresh;
+          const ghosts = (prev.events || []).filter((e) => e._ghost_key);
+          const serverIds = new Set((fresh.events || [])
+            .map((e) => e.event_id).filter(Boolean));
+          // Drop any ghost whose persisted twin already landed server-side.
+          const liveGhosts = ghosts.filter((g) => !serverIds.has(g.event_id));
+          return { ...fresh, events: [...(fresh.events || []), ...liveGhosts] };
+        });
+      } catch {}
+    };
+    const id = setInterval(tick, 4000);
+    return () => clearInterval(id);
+  }, [threadId]);
+
   // Switching threads: never carry the previous thread's reply state forward.
   useEffect(() => {
     setThread(null);
