@@ -26,6 +26,16 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
   if (!agent) throw new Error('agent_not_found');
   // Emit thinking placeholder immediately so SSE consumers can render
   // an "Agent X is thinking..." bubble before the LLM call settles.
+  // Persist to thread.running_agents so reopening the modal mid-call
+  // can resume the bubble instead of showing nothing.
+  await cT().updateOne(
+    { _id: threadId },
+    { $pull: { running_agents: { agent_id: agent._id } } },
+  );
+  await cT().updateOne(
+    { _id: threadId },
+    { $push: { running_agents: { agent_id: agent._id, started_at: new Date() } } },
+  );
   if (onProgress) {
     try { onProgress({ kind: 'thinking', agent }); } catch {}
   }
@@ -158,6 +168,11 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
   await cT().updateOne(
     { _id: threadId },
     { $push: { events: ev }, $set: { updated_at: ts } },
+  );
+  // Clear thinking entry now that this agent's reply has landed.
+  await cT().updateOne(
+    { _id: threadId },
+    { $pull: { running_agents: { agent_id: agent._id } } },
   );
   if (onProgress) {
     try { onProgress({ kind: 'completed', agent, event: ev }); } catch {}

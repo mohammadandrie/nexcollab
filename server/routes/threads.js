@@ -201,7 +201,11 @@ router.get('/threads/:id', requireAuth, async (req, res, next) => {
       ...(t.events || []).map((e) => e.actor_id),
     ]);
     // Hydrate agent metadata so client bubble can render persona name/color/avatar.
-    const agentIds = [...new Set((t.events || []).map((e) => e.agent_id).filter(Boolean))];
+    // Include both completed-event agents and currently in-flight (running) ones.
+    const agentIds = [...new Set([
+      ...(t.events || []).map((e) => e.agent_id).filter(Boolean),
+      ...(t.running_agents || []).map((r) => r.agent_id).filter(Boolean),
+    ])];
     const agentRows = agentIds.length ? await cA().find(
       { _id: { $in: agentIds } },
       { projection: { _id: 1, name: 1, role: 1, color: 1, photo_url: 1 } },
@@ -254,6 +258,10 @@ router.get('/threads/:id', requireAuth, async (req, res, next) => {
         approvals: Array.isArray(t.approvals) ? t.approvals : [],
         description_locks: t.description_locks || {},
         deal_state: t.deal_state || { status: 'idle' },
+        running_agents: (t.running_agents || []).map((r) => ({
+          agent_id: r.agent_id, started_at: r.started_at,
+          agent: agentMap[r.agent_id] || null,
+        })),
         created_at: t.created_at, updated_at: t.updated_at, closed_at: t.closed_at,
       },
     });
