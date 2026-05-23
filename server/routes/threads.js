@@ -818,4 +818,32 @@ router.get('/projects/:id/board', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// POST /api/threads/:id/run — trigger agent discussion loop until DEAL or
+// STUCK. Kicks off in background and returns immediately so the request
+// doesn't block on multiple LLM calls. Client polls thread for new events.
+router.post('/threads/:id/run', requireAuth, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const t = await cT().findOne({ _id: id });
+    if (!t) return res.status(404).json({ detail: 'thread_not_found' });
+    const member = await cPM().findOne({ project_id: t.project_id, user_id: req.user._id });
+    if (!member) return res.status(403).json({ detail: 'not_a_member' });
+    // Mark running so UI can show indicator. Loop updates status on exit.
+    await cT().updateOne(
+      { _id: id },
+      { $set: { 'deal_state.status': 'running', 'deal_state.started_at': new Date() } },
+    );
+    res.json({ ok: true, status: 'running' });
+    // Fire-and-forget: import lazily so circular imports stay safe.
+    import('../agentRunner.js').then(({ runAgentLoop }) => runAgentLoop(id))
+      .then((r) => console.log(`[mak] thread ${id} loop done:`, r))
+      .catch((e) => {
+        console.error(`[mak] thread ${id} loop error:`, e);
+        cT().updateOne({ _id: id },
+          { $set: { 'deal_state.status': 'error',
+                    'deal_state.last_error': String(e.message || e) } });
+      });
+  } catch (e) { next(e); }
+});
+
 export default router;
