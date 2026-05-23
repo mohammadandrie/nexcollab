@@ -18,7 +18,7 @@ function fmtEvent(ev, userMap, agentMap) {
   return `[${who}] ${ev.content || ''}`;
 }
 
-export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUser = null }) {
+export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUser = null, replyToEventId = null }) {
   const thread = await cT().findOne({ _id: threadId });
   if (!thread) throw new Error('thread_not_found');
   const agent = await cA().findOne({ _id: agentId });
@@ -71,7 +71,7 @@ export async function runAgentTurn({ threadId, agentId, isStageAgent, triggerUse
     proposal_ref: stance.proposalRef ?? null,
     ts,
     content: stripStanceLine(reply) || reply,
-    attachments: [], reply_to_event_id: null,
+    attachments: [], reply_to_event_id: replyToEventId,
   };
   await cT().updateOne(
     { _id: threadId },
