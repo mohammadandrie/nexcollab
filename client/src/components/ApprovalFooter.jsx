@@ -16,6 +16,7 @@ const NEED = { open: 1, uiux: 1, dev: 2, qa: 1, pcheck: 1 };
 
 export default function ApprovalFooter({ thread, currentUser, onApproved }) {
   const [busy, setBusy] = useState(false);
+  const [runBusy, setRunBusy] = useState(false);
   if (!thread) return null;
   const stage = thread.stage || 'backlog';
   if (stage === 'backlog' || stage === 'done') return null;
@@ -32,6 +33,21 @@ export default function ApprovalFooter({ thread, currentUser, onApproved }) {
   const toast = (kind, text) => window.dispatchEvent(
     new CustomEvent('nexcollab:toast', { detail: { kind, text } }),
   );
+
+  async function runAgents() {
+    setRunBusy(true);
+    try {
+      await api(`/api/threads/${thread.id}/run`, { method: 'POST' });
+      toast('info', 'Agent diskusi dimulai…');
+      // Poll a few times so user sees the result without manual refresh.
+      for (let i = 0; i < 10; i += 1) {
+        await new Promise((r) => setTimeout(r, 3000));
+        onApproved?.({ poll: true });
+      }
+    } catch (e) {
+      toast('error', 'Gagal start agent: ' + (e.message || e));
+    } finally { setRunBusy(false); }
+  }
 
   async function approve() {
     setBusy(true);
@@ -53,7 +69,20 @@ export default function ApprovalFooter({ thread, currentUser, onApproved }) {
       <span className="font-medium">{STAGE_LABEL[stage] || stage}</span>
       <span className="theme-muted">·</span>
       <span>Approve {have}/{need}</span>
+      {thread.deal_state?.status && thread.deal_state.status !== 'idle' && (
+        <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+          thread.deal_state.status === 'deal' ? 'bg-emerald-500/20 text-emerald-300' :
+          thread.deal_state.status === 'stuck' ? 'bg-rose-500/20 text-rose-300' :
+          thread.deal_state.status === 'running' ? 'bg-amber-500/20 text-amber-300 animate-pulse' :
+          'bg-zinc-500/20 text-zinc-300'
+        }`}>{thread.deal_state.status}</span>
+      )}
       <div className="ml-auto flex gap-2">
+        <button onClick={runAgents} disabled={runBusy}
+          title="Trigger agent discussion until DEAL or STUCK"
+          className="px-2 py-1 rounded bg-violet-600 hover:bg-violet-500 text-white text-[11px] disabled:opacity-50">
+          {runBusy ? '🤖 running…' : '🤖 Run agents'}
+        </button>
         {canApprove ? (
           <button onClick={approve} disabled={busy}
             className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50">
