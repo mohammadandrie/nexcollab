@@ -657,10 +657,14 @@ export default function ThreadDetailModal({
                                    onReply={thread.status !== 'done'
                                      ? (src) => setReplyTo({
                                          event_id: src.event_id,
-                                         author_name: src.actor_id == null
-                                           ? 'Hermes' : (src.actor?.name || '—'),
-                                         author_color: src.actor_id == null
-                                           ? '#818cf8' : (src.actor?.color || '#888'),
+                                         author_name: src.agent
+                                           ? `Agent ${src.agent.name}`
+                                           : (src.actor_id == null
+                                               ? 'Hermes' : (src.actor?.name || '—')),
+                                         author_color: src.agent
+                                           ? (src.agent.color || '#818cf8')
+                                           : (src.actor_id == null
+                                               ? '#818cf8' : (src.actor?.color || '#888')),
                                          excerpt: String(src.content || '')
                                                    .replace(/\s+/g, ' ').slice(0, 120),
                                        })

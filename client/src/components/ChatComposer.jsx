@@ -141,7 +141,7 @@ export default function ChatComposer({
           <span className="text-[11px] theme-muted">Replying to</span>
           <span className="text-[11px] font-medium"
                 style={{ color: replyingTo.author_color || '#aaa' }}>
-            {replyingTo.author_name || (replyingTo.role === 'assistant' ? 'Hermes' : '—')}
+            {replyingTo.author_name || (replyingTo.role === 'assistant' ? 'Agent' : '—')}
           </span>
           <span className="text-[11px] theme-muted truncate flex-1">
             · {String(replyingTo.content || '').replace(/\s+/g, ' ').slice(0, 80) || '(empty)'}
