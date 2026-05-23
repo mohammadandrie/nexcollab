@@ -40,7 +40,7 @@ function pickAgents(agents, ev, threadEvents, excludeAgentId) {
   return result;
 }
 
-export async function dispatchAgentReply(threadId, triggerEvent, triggerActor, depth = 0) {
+export async function dispatchAgentReply(threadId, triggerEvent, triggerActor, depth = 0, onProgress = null) {
   if (depth >= MAX_CHAIN_DEPTH) return null;
   const t = await cT().findOne({ _id: threadId });
   if (!t) return null;
@@ -62,6 +62,7 @@ export async function dispatchAgentReply(threadId, triggerEvent, triggerActor, d
         threadId, agentId: pick.agent._id, isStageAgent,
         triggerUser: triggerActor,
         replyToEventId: triggerEvent.event_id ?? null,
+        onProgress,
       });
     } catch (e) {
       console.warn(`[mak] agent ${pick.agent.name} reply failed:`, e.message);
@@ -73,6 +74,6 @@ export async function dispatchAgentReply(threadId, triggerEvent, triggerActor, d
   // next agent treats this as agent-to-agent (no human speaker).
   // Return the chain's last event if it fired, else this turn's event
   // (so caller always gets the most recent agent reply for UI).
-  const chained = await dispatchAgentReply(threadId, lastEv, null, depth + 1);
+  const chained = await dispatchAgentReply(threadId, lastEv, null, depth + 1, onProgress);
   return chained || lastEv;
 }
