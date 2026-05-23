@@ -369,7 +369,7 @@ export default function ThreadDetailModal({
                             onChanged={() => { refetch(); onChanged?.(); }} />
                   {thread.assignee && <span>· assigned: {thread.assignee.name}</span>}
                   <span>·</span>
-                  {thread.originator?.id === currentUserId ? (
+                  {currentUserId != null ? (
                     <CategoryPicker
                       current={thread.category || 'Other'}
                       customCategories={customCategories}
@@ -459,7 +459,7 @@ export default function ThreadDetailModal({
                        && thread.description_attachments.length > 0)
                   || true) && (
                   <div className="relative mb-2">
-                    {thread.originator?.id === currentUserId && !editing && (
+                    {currentUserId != null && !editing && (
                       <button type="button" onClick={startEdit}
                               title="Edit description"
                               aria-label="Edit description"
