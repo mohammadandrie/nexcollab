@@ -328,6 +328,7 @@ export default function Workspace({ user, onLogout, onUserUpdated }) {
                 <ThreadDetailModal
                   threadId={openThreadId}
                   currentUserId={user?.id ?? user?._id ?? null}
+                  currentUser={user}
                   members={s.members || []}
                   customCategories={s.customCategories || []}
                   onClose={() => setOpenThreadId(null)}
