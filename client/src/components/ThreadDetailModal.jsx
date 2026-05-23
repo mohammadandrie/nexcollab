@@ -5,8 +5,7 @@ import { api, mdLite } from '../api.js';
 import Avatar from './Avatar.jsx';
 import CategoryPicker from './CategoryPicker.jsx';
 import CommentBubble from './CommentBubble.jsx';
-import ApprovalFooter from './ApprovalFooter.jsx';
-import MentionAgentBar from './MentionAgentBar.jsx';
+import StageBar from './StageBar.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import Attachment from './Attachment.jsx';
 import ConfirmModal from './ConfirmModal.jsx';
@@ -350,7 +349,10 @@ export default function ThreadDetailModal({
                   <div className="text-base font-semibold break-words">{thread.title}</div>
                 )}
                 <div className="text-[11px] theme-muted flex items-center gap-1.5 flex-wrap">
-                  <span>by {thread.originator?.name || '—'} · status: {thread.status}</span>
+                  <span>by {thread.originator?.name || '—'}</span>
+                  <span>·</span>
+                  <StageBar thread={thread} currentUser={currentUser}
+                            onChanged={() => { refetch(); onChanged?.(); }} />
                   {thread.assignee && <span>· assigned: {thread.assignee.name}</span>}
                   <span>·</span>
                   {thread.originator?.id === currentUserId ? (
@@ -681,15 +683,6 @@ export default function ThreadDetailModal({
                 {err && <div className="text-[11px] text-red-400 mt-1">{err}</div>}
               </div>
             </section>
-            <MentionAgentBar
-              thread={thread}
-              onMentioned={() => { refetch(); onChanged?.(); }}
-            />
-            <ApprovalFooter
-              thread={thread}
-              currentUser={currentUser}
-              onApproved={() => { refetch(); onChanged?.(); }}
-            />
             </div>
           </>
         )}
