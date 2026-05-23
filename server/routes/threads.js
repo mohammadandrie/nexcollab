@@ -211,11 +211,12 @@ router.get('/threads/:id', requireAuth, async (req, res, next) => {
       const src = evById[eid];
       if (!src) return null;
       const isAi = src.actor_id == null;
+      const ag = src.agent_id ? agentMap[src.agent_id] : null;
       const a = src.actor_id ? userMap[src.actor_id] : null;
       return {
         event_id: src.event_id,
-        author_name: isAi ? 'Hermes' : (a?.name || '—'),
-        author_color: isAi ? '#818cf8' : (a?.color || '#888'),
+        author_name: ag ? `Agent ${ag.name}` : (isAi ? 'Hermes' : (a?.name || '—')),
+        author_color: ag ? (ag.color || '#818cf8') : (isAi ? '#818cf8' : (a?.color || '#888')),
         excerpt: String(src.content || '').replace(/\s+/g, ' ').slice(0, 120),
         has_attachment: Array.isArray(src.attachments) && src.attachments.length > 0,
       };
